@@ -1,0 +1,143 @@
+<body>
+<header class="topo"><div class="faixa">
+  <img src="__LOGO__" alt="Aliatti Comércio de Gás">
+  <div class="selo">Estudo de caso com dados simulados<br>Mapa e rotas: OpenStreetMap</div>
+</div></header>
+
+<div class="abertura"><div class="faixa">
+  <p class="olho">Roteirizador de entregas · botijão de gás</p>
+  <h1>Qual a melhor rota para cada veículo?</h1>
+  <p class="resposta">Cadastre os veículos, informe ou carregue a lista de entregas e veja a rota de cada um no mapa, com a <strong>carga a bordo</strong> e o <strong>horário previsto</strong> de cada parada.</p>
+</div></div>
+
+<main><div class="faixa">
+
+<section class="grade duas">
+  <div class="coluna">
+    <div class="cartao">
+      <h2><span class="passo">1</span>Depósito e parâmetros</h2>
+      <div class="campos c3">
+        <label>Nome do depósito<input id="d-nome"></label>
+        <label>Latitude<input id="d-lat" inputmode="decimal" placeholder="-29,2511"></label>
+        <label>Longitude<input id="d-lon" inputmode="decimal" placeholder="-51,5247"></label>
+      </div>
+      <div class="campos c3">
+        <label>Saída do depósito<input id="p-saida" type="time" value="08:00"></label>
+        <label>Minutos por parada<input id="p-parada" type="number" min="0" step="1" value="7"></label>
+        <label>Minutos por recarga<input id="p-recarga" type="number" min="0" step="1" value="10"></label>
+      </div>
+      <div class="campos c3">
+        <label>Divisão das entregas<select id="p-objetivo">
+          <option value="regiao">Um veículo por região</option>
+          <option value="tempo">Menor tempo de entrega</option></select></label>
+        <label>Cidade padrão<input id="p-cidade" value="Garibaldi"></label>
+        <label>UF<input id="p-uf" value="RS" maxlength="2"></label>
+      </div>
+      <div class="campos c3">
+        <label>Tolerância da hora marcada (min)<input id="p-tolerancia" type="number" min="0" step="5" value="15"></label>
+      </div>
+      <div class="opcoes">
+        <label><input type="checkbox" id="p-cheio" checked> Sair com o veículo cheio (reserva para pedidos novos)</label>
+        <label><input type="checkbox" id="p-viagens" checked> Voltar ao depósito para recarregar se faltar capacidade</label>
+        <label><input type="checkbox" id="p-retorno" checked> Voltar ao depósito no fim</label>
+        <label><input type="checkbox" id="p-ruas" checked> Distâncias pelas ruas (precisa de internet)</label>
+      </div>
+      <p class="nota" style="margin:0">Um veículo por região: menor quilometragem, para reduzir o custo. Menor tempo de entrega: divide o trabalho por igual para a última entrega sair mais cedo, indicado para horários de pico. Nos dois, cada veículo atende entregas próximas. A cidade padrão vale para as entregas sem cidade preenchida.</p>
+    </div>
+
+    <div class="cartao">
+      <h2><span class="passo">2</span>Veículos</h2>
+      <div class="tabela-rolagem"><table id="t-veiculos" class="edicao">
+        <thead><tr><th></th><th>Veículo</th><th>Capacidade (botijões)</th><th>Sai hoje</th><th></th></tr></thead><tbody></tbody></table></div>
+      <button type="button" class="secundario" id="btn-add-veiculo">+ Adicionar veículo</button>
+      <p class="nota" id="resumo-carga" style="margin:10px 0 0"></p>
+    </div>
+  </div>
+
+  <div class="cartao mapa-cartao">
+    <div class="barra-mapa">
+      <h2>Mapa</h2>
+      <div class="alternar" role="group" aria-label="Marcar no mapa">
+        <button type="button" id="btn-modo-deposito" aria-pressed="false">Marcar depósito no mapa</button>
+        <button type="button" id="btn-modo-entrega" aria-pressed="false">Adicionar entregas no mapa</button>
+      </div>
+    </div>
+    <p class="nota" id="dica-mapa" style="margin:0 0 6px;min-height:1.2em"></p>
+    <div id="mapa" aria-label="Mapa das rotas"></div>
+    <div class="legenda" id="legenda-mapa" style="margin-top:10px"></div>
+  </div>
+</section>
+
+<section>
+  <div class="cartao">
+    <h2><span class="passo">3</span>Entregas</h2>
+    <p class="nota">Informe rua, número e cidade; o bairro é opcional, mas ajuda em ruas compridas. O endereço é procurado no OpenStreetMap ao criar as rotas (cerca de 1 por segundo). A hora marcada é opcional: se preenchida, a rota é montada para chegar nesse horário. Se o cliente mandou a localização, cole a coordenada ou o link do mapa na última coluna.</p>
+    <div class="acoes">
+      <label class="botao secundario">Carregar arquivo (CSV ou Excel)<input type="file" id="arquivo" accept=".csv,.txt,.xlsx,.xls" hidden></label>
+      <button type="button" class="secundario" id="btn-modelo">Baixar modelo</button>
+      <button type="button" class="secundario" id="btn-add-entrega">+ Adicionar linha</button>
+      <button type="button" class="secundario" id="btn-exemplo">Carregar exemplo</button>
+      <button type="button" class="secundario" id="btn-limpar">Limpar entregas</button>
+      <label class="marcar"><input type="checkbox" id="p-somar"> Somar o arquivo às entregas já listadas</label>
+    </div>
+    <div class="tabela-rolagem alta"><table id="t-entregas" class="edicao">
+      <thead><tr><th>#</th><th>Cliente</th><th>Rua</th><th>Número</th><th>Bairro</th><th>Cidade</th><th>Botijões</th><th>Hora marcada</th><th>Coordenada</th><th>Situação</th><th></th></tr></thead><tbody></tbody></table></div>
+    <div class="fechar">
+      <button type="button" class="principal" id="btn-rotas">Criar rotas</button>
+      <button type="button" class="secundario" id="btn-atualizar" hidden title="Mantém o que já foi entregue e encaixa os pedidos novos">Atualizar rotas em andamento</button>
+      <p class="aviso" id="aviso" role="status" hidden></p>
+    </div>
+  </div>
+</section>
+
+<section id="resultado" hidden>
+  <div class="titulo-resultado">
+    <h2>Rotas do dia</h2>
+    <div class="acoes"><button type="button" class="secundario" id="btn-csv">Baixar rotas (CSV)</button><button type="button" class="secundario" id="btn-imprimir">Imprimir todas (uma folha por veículo)</button></div>
+  </div>
+  <p class="nota" id="nota-andamento">Entrou pedido com os veículos na rua? Marque em "Feito" o que já foi entregue, acrescente o pedido na lista de entregas e clique em "Atualizar rotas em andamento". Depois envie a imagem da rota nova a cada entregador.</p>
+  <p class="sub" id="r-fonte"></p>
+  <div class="grade g4" id="r-cartoes" style="margin-bottom:16px"></div>
+  <div class="grade rotas" id="r-rotas"></div>
+  <div class="cartao" id="r-fora" style="margin-top:16px" hidden></div>
+</section>
+
+<section>
+  <h2>Como funciona</h2>
+  <div class="grade g2i">
+    <div class="cartao">
+      <h3>Método</h3>
+      <ul class="limpa">
+        <li><strong>Distâncias:</strong> tempo e quilômetros entre todos os pontos pelas ruas, calculados pelo OSRM sobre o mapa do OpenStreetMap. Sem internet ou sem resposta, usa linha reta × 1,35 a 25 km/h.</li>
+        <li><strong>Regiões:</strong> as entregas são agrupadas por proximidade, um grupo por veículo, respeitando a capacidade. O grupo que pede mais carga fica com o veículo maior.</li>
+        <li><strong>Ordem:</strong> dentro de cada grupo, cada entrega entra na posição em que menos aumenta o percurso; depois o roteiro é refinado invertendo trechos e mudando paradas de lugar.</li>
+        <li><strong>Ajuste nas divisas:</strong> no modo por região, uma entrega só troca de veículo se o total diminuir sem alongar a rota mais comprida. No modo de menor tempo, troca se isso encurtar o veículo mais demorado dos dois, mesmo rodando um pouco mais.</li>
+        <li><strong>Hora marcada:</strong> a entrega deve começar entre a hora combinada menos a tolerância e a hora mais a tolerância. Chegar antes faz o veículo esperar; chegar depois pesa muito no cálculo. A divisão por região não muda: o que muda é a ordem das paradas do veículo, mesmo que ele rode mais. Uma entrega só passa para outro veículo se não houver ordem que cumpra o horário.</li>
+        <li><strong>Horários:</strong> saída do depósito, mais o tempo de cada trecho, mais os minutos de cada parada.</li>
+        <li><strong>Recarga:</strong> se os pedidos passam da capacidade, uma viagem extra é testada em cada veículo e fica com o que rodar menos quilômetros no total (ou terminar mais cedo, no modo de menor tempo). O veículo volta ao depósito, recarrega e sai de novo.</li>
+        <li><strong>Pedidos novos na rua:</strong> o que foi marcado como feito não muda. Cada veículo continua da última entrega feita, com os botijões que ainda tem; o pedido novo entra no veículo e na posição em que menos aumenta o percurso, sem tirar entregas de outro veículo. Se nenhum tem carga, o mais conveniente volta ao depósito.</li>
+        <li><strong>Carga:</strong> o veículo sai com a soma dos pedidos da rota; a tabela mostra quantos botijões cheios restam depois de cada entrega.</li>
+      </ul>
+    </div>
+    <div class="cartao">
+      <h3>Limites</h3>
+      <ul class="limpa">
+        <li>O resultado é uma boa rota, não a melhor possível comprovada: o método é uma heurística, rápida o bastante para rodar no navegador.</li>
+        <li>Os tempos não consideram trânsito nem pausa do motorista. Se as horas marcadas forem impossíveis de cumprir juntas, a entrega aparece com o atraso previsto.</li>
+        <li>Onde o OpenStreetMap não tem o número das casas, o endereço cai no meio do trecho da rua e fica marcado como "nº aproximado". Informar o bairro e arrastar o marcador no mapa corrigem a posição.</li>
+        <li>A recarga considera que o depósito tem botijões cheios para todas as viagens.</li>
+        <li>Pelas ruas, o limite é de 99 entregas por cálculo; acima disso as distâncias passam a ser em linha reta.</li>
+        <li>Endereço mal escrito pode ser localizado no lugar errado. Confira no mapa antes de sair.</li>
+        <li>Os serviços de mapa, endereços e rotas são públicos e gratuitos, sem garantia de disponibilidade. Para uso diário de uma empresa, o indicado é contratar ou hospedar os próprios.</li>
+        <li>Os clientes e pedidos do exemplo são inventados; os pontos foram sorteados sobre ruas de Garibaldi e Carlos Barbosa.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</div></main>
+
+<footer><div class="faixa">
+  Estudo independente com dados simulados. Não usa dados internos da Aliatti Comércio de Gás. Os dados digitados ou carregados ficam só no seu navegador;
+  endereços e coordenadas são enviados aos serviços públicos do OpenStreetMap e do OSRM para localizar e calcular as rotas. Elaborado por Fabian Aliatti Mayer.
+</div></footer>

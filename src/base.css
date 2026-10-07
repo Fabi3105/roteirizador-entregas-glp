@@ -1,0 +1,76 @@
+
+  :root {
+    --navy: #1B365D; --navy-dark: #142946; --navy-light: #76869E; --navy-pale: #D1D7DF;
+    --gold: #FFD100; --gold-dark: #BF9D00; --gold-pale: #FFF6CC;
+    --bg: #F3F4F7; --card: #FFFFFF; --border: #E3E6EB; --text: #1F2A37; --muted: #6B7280; --grid: #E9ECF0;
+    --c-produtor: #1a98b3; --c-icms: #D9713C; --c-distribuicao: #3f6fb5; --c-revenda: #d6ab00;
+    --c-consumidor: #1B365D; --c-ipca: #97999B;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: Galyon, Calibri, "Segoe UI", Arial, sans-serif; font-size: 16px; line-height: 1.5; }
+  header.topo { background: var(--navy); color: #fff; border-bottom: 4px solid var(--gold); }
+  .faixa { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+  .topo .faixa { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 14px; padding-bottom: 14px; }
+  .topo img { height: 46px; width: auto; display: block; }
+  .topo .selo { font-size: 13px; color: var(--navy-pale); text-align: right; }
+  .abertura { background: var(--navy-dark); color: #fff; padding: 34px 0 38px; }
+  .abertura .olho { color: var(--gold); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; margin: 0 0 8px; }
+  h1 { font-size: clamp(26px, 4vw, 40px); line-height: 1.15; margin: 0 0 12px; font-weight: 700; }
+  .abertura .resposta { font-size: clamp(16px, 2vw, 19px); max-width: 860px; margin: 0; color: #E7EBF1; }
+  .abertura .resposta strong { color: var(--gold); font-weight: 700; }
+  main { padding: 24px 0 8px; }
+  section { margin-bottom: 30px; }
+  h2 { font-size: 22px; color: var(--navy); margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 14px; max-width: 880px; }
+  .grade { display: grid; gap: 16px; }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .g2 { grid-template-columns: 1.6fr 1fr; }
+  .g2i { grid-template-columns: 1fr 1fr; }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 900px) { .g4 { grid-template-columns: repeat(2, 1fr); } .g2, .g2i, .g3 { grid-template-columns: 1fr; } }
+  @media (max-width: 480px) { .g4 { grid-template-columns: 1fr; } .topo .selo { display: none; } }
+  .cartao { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+  .cartao h3 { font-size: 17px; margin: 0 0 2px; color: var(--text); }
+  .cartao .nota { font-size: 13.5px; color: var(--muted); margin: 0 0 10px; }
+  .indicador { border-top: 4px solid var(--navy); }
+  .indicador .rotulo { font-size: 13.5px; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+  .indicador .valor { font-size: 34px; font-weight: 700; line-height: 1.15; margin: 4px 0 2px; color: var(--text); }
+  .indicador .detalhe { font-size: 13.5px; color: var(--muted); }
+  .amostra { width: 11px; height: 11px; border-radius: 3px; display: inline-block; flex: none; }
+  .legenda { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13.5px; color: var(--text); margin: 4px 0 6px; }
+  .legenda span { display: inline-flex; align-items: center; gap: 6px; }
+  .legenda .linha { width: 18px; height: 0; border-top: 3px solid; display: inline-block; }
+  .legenda .linha.tracejada { border-top-style: dashed; }
+  .alternar { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 2px 0 8px; }
+  .alternar button { font: inherit; font-size: 13.5px; padding: 6px 12px; border: 0; background: #fff; color: var(--text); cursor: pointer; }
+  .alternar button[aria-pressed="true"] { background: var(--navy); color: #fff; }
+  .alternar button:focus-visible { outline: 2px solid var(--gold-dark); outline-offset: -2px; }
+  .grafico { width: 100%; position: relative; }
+  .grafico svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .grafico text { font-family: inherit; }
+  details { margin-top: 8px; font-size: 13.5px; }
+  details summary { cursor: pointer; color: var(--navy); }
+  .tabela-rolagem { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; }
+  tr.destaque td { background: var(--gold-pale); font-weight: 700; }
+  #dica { position: fixed; z-index: 10; pointer-events: none; background: var(--navy-dark); color: #fff; font-size: 13px; line-height: 1.4;
+          padding: 8px 10px; border-radius: 6px; max-width: 280px; box-shadow: 0 4px 14px rgba(0,0,0,.25); display: none; }
+  #dica b { color: var(--gold); font-weight: 700; }
+  #dica .l { display: flex; justify-content: space-between; gap: 14px; }
+  #dica .l i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 6px; }
+  .leitura { background: var(--gold-pale); border-left: 4px solid var(--gold); border-radius: 6px; padding: 10px 14px; font-size: 15px; margin-top: 12px; }
+  ul.limpa { margin: 6px 0 0; padding-left: 20px; }
+  ul.limpa li { margin-bottom: 5px; }
+  footer { background: var(--navy); color: var(--navy-pale); font-size: 13.5px; padding: 18px 0; margin-top: 10px; }
+  footer a { color: #fff; }
+  .calc .campos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: end; }
+  @media (max-width: 900px) { .calc .campos { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 480px) { .calc .campos { grid-template-columns: 1fr; } }
+  .calc label { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; color: var(--muted); }
+  .calc input, .calc select { font: inherit; font-size: 15px; color: var(--text); padding: 8px 10px; border: 1px solid var(--navy-light); border-radius: 8px; background: #fff; width: 100%; min-width: 0; }
+  .calc input[type=range] { padding: 0; border: 0; accent-color: var(--navy); height: 37px; }
+  .calc input:focus-visible, .calc select:focus-visible { outline: 2px solid var(--gold-dark); outline-offset: 1px; }
+  .calc output { color: var(--text); font-weight: 700; }

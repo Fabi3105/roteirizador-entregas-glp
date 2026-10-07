@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roteirizador de entregas | Rotas por veículo com carga e horário</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root {
+    --navy: #1B365D; --navy-dark: #142946; --navy-light: #76869E; --navy-pale: #D1D7DF;
+    --gold: #FFD100; --gold-dark: #BF9D00; --gold-pale: #FFF6CC;
+    --bg: #F3F4F7; --card: #FFFFFF; --border: #E3E6EB; --text: #1F2A37; --muted: #6B7280; --grid: #E9ECF0;
+    --c-produtor: #1a98b3; --c-icms: #D9713C; --c-distribuicao: #3f6fb5; --c-revenda: #d6ab00;
+    --c-consumidor: #1B365D; --c-ipca: #97999B;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: Galyon, Calibri, "Segoe UI", Arial, sans-serif; font-size: 16px; line-height: 1.5; }
+  header.topo { background: var(--navy); color: #fff; border-bottom: 4px solid var(--gold); }
+  .faixa { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+  .topo .faixa { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 14px; padding-bottom: 14px; }
+  .topo img { height: 46px; width: auto; display: block; }
+  .topo .selo { font-size: 13px; color: var(--navy-pale); text-align: right; }
+  .abertura { background: var(--navy-dark); color: #fff; padding: 34px 0 38px; }
+  .abertura .olho { color: var(--gold); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; margin: 0 0 8px; }
+  h1 { font-size: clamp(26px, 4vw, 40px); line-height: 1.15; margin: 0 0 12px; font-weight: 700; }
+  .abertura .resposta { font-size: clamp(16px, 2vw, 19px); max-width: 860px; margin: 0; color: #E7EBF1; }
+  .abertura .resposta strong { color: var(--gold); font-weight: 700; }
+  main { padding: 24px 0 8px; }
+  section { margin-bottom: 30px; }
+  h2 { font-size: 22px; color: var(--navy); margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 14px; max-width: 880px; }
+  .grade { display: grid; gap: 16px; }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .g2 { grid-template-columns: 1.6fr 1fr; }
+  .g2i { grid-template-columns: 1fr 1fr; }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 900px) { .g4 { grid-template-columns: repeat(2, 1fr); } .g2, .g2i, .g3 { grid-template-columns: 1fr; } }
+  @media (max-width: 480px) { .g4 { grid-template-columns: 1fr; } .topo .selo { display: none; } }
+  .cartao { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+  .cartao h3 { font-size: 17px; margin: 0 0 2px; color: var(--text); }
+  .cartao .nota { font-size: 13.5px; color: var(--muted); margin: 0 0 10px; }
+  .indicador { border-top: 4px solid var(--navy); }
+  .indicador .rotulo { font-size: 13.5px; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+  .indicador .valor { font-size: 34px; font-weight: 700; line-height: 1.15; margin: 4px 0 2px; color: var(--text); }
+  .indicador .detalhe { font-size: 13.5px; color: var(--muted); }
+  .amostra { width: 11px; height: 11px; border-radius: 3px; display: inline-block; flex: none; }
+  .legenda { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13.5px; color: var(--text); margin: 4px 0 6px; }
+  .legenda span { display: inline-flex; align-items: center; gap: 6px; }
+  .legenda .linha { width: 18px; height: 0; border-top: 3px solid; display: inline-block; }
+  .legenda .linha.tracejada { border-top-style: dashed; }
+  .alternar { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 2px 0 8px; }
+  .alternar button { font: inherit; font-size: 13.5px; padding: 6px 12px; border: 0; background: #fff; color: var(--text); cursor: pointer; }
+  .alternar button[aria-pressed="true"] { background: var(--navy); color: #fff; }
+  .alternar button:focus-visible { outline: 2px solid var(--gold-dark); outline-offset: -2px; }
+  .grafico { width: 100%; position: relative; }
+  .grafico svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .grafico text { font-family: inherit; }
+  details { margin-top: 8px; font-size: 13.5px; }
+  details summary { cursor: pointer; color: var(--navy); }
+  .tabela-rolagem { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; }
+  tr.destaque td { background: var(--gold-pale); font-weight: 700; }
+  #dica { position: fixed; z-index: 10; pointer-events: none; background: var(--navy-dark); color: #fff; font-size: 13px; line-height: 1.4;
+          padding: 8px 10px; border-radius: 6px; max-width: 280px; box-shadow: 0 4px 14px rgba(0,0,0,.25); display: none; }
+  #dica b { color: var(--gold); font-weight: 700; }
+  #dica .l { display: flex; justify-content: space-between; gap: 14px; }
+  #dica .l i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 6px; }
+  .leitura { background: var(--gold-pale); border-left: 4px solid var(--gold); border-radius: 6px; padding: 10px 14px; font-size: 15px; margin-top: 12px; }
+  ul.limpa { margin: 6px 0 0; padding-left: 20px; }
+  ul.limpa li { margin-bottom: 5px; }
+  footer { background: var(--navy); color: var(--navy-pale); font-size: 13.5px; padding: 18px 0; margin-top: 10px; }
+  footer a { color: #fff; }
+  .calc .campos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: end; }
+  @media (max-width: 900px) { .calc .campos { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 480px) { .calc .campos { grid-template-columns: 1fr; } }
+  .calc label { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; color: var(--muted); }
+  .calc input, .calc select { font: inherit; font-size: 15px; color: var(--text); padding: 8px 10px; border: 1px solid var(--navy-light); border-radius: 8px; background: #fff; width: 100%; min-width: 0; }
+  .calc input[type=range] { padding: 0; border: 0; accent-color: var(--navy); height: 37px; }
+  .calc input:focus-visible, .calc select:focus-visible { outline: 2px solid var(--gold-dark); outline-offset: 1px; }
+  .calc output { color: var(--text); font-weight: 700; }
+  h2 .passo { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: var(--navy); color: #fff; font-size: 14px; margin-right: 8px; vertical-align: 2px; }
+  .cartao h2 { font-size: 19px; margin-bottom: 10px; }
+  .duas { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); align-items: start; }
+  .coluna { display: grid; gap: 16px; min-width: 0; }
+  @media (max-width: 900px) { .duas { grid-template-columns: 1fr; } }
+  .campos { display: grid; gap: 10px 12px; margin-bottom: 10px; }
+  .campos.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 560px) { .campos.c3 { grid-template-columns: 1fr; } }
+  label { font-size: 13.5px; color: var(--muted); }
+  .campos label, label.bloco { display: flex; flex-direction: column; gap: 4px; }
+  input, select, button { font: inherit; }
+  input:not([type=checkbox]):not([type=file]), select { font-size: 15px; color: var(--text); padding: 7px 9px; border: 1px solid var(--navy-light); border-radius: 8px; background: #fff; width: 100%; min-width: 0; }
+  input:focus-visible, select:focus-visible, button:focus-visible, .botao:focus-within { outline: 2px solid var(--gold-dark); outline-offset: 1px; }
+  .opcoes, .acoes { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 10px; }
+  .opcoes label, .marcar { display: inline-flex; gap: 6px; align-items: center; color: var(--text); }
+  button, .botao { cursor: pointer; border-radius: 8px; padding: 8px 14px; font-size: 14.5px; border: 1px solid var(--navy); display: inline-flex; align-items: center; }
+  .secundario { background: #fff; color: var(--navy); }
+  .secundario:hover { background: var(--navy-pale); }
+  .principal { background: var(--gold); color: var(--navy-dark); border-color: var(--gold-dark); font-weight: 700; font-size: 17px; padding: 11px 26px; }
+  .principal:hover { background: #ffdb33; }
+  .principal:disabled { opacity: .6; cursor: progress; }
+  button.x { border: 0; background: none; color: var(--muted); font-size: 20px; line-height: 1; padding: 2px 8px; }
+  button.x:hover { color: #B42318; }
+  .alternar button { border-radius: 0; border: 0; }
+  table.edicao th, table.edicao td { padding: 4px 6px; text-align: left; }
+  table.edicao td.n { color: var(--muted); font-size: 13px; }
+  table.edicao td.centro { text-align: center; }
+  table.edicao input.curto { width: 86px; } table.edicao input.mini { width: 70px; } table.edicao input.medio { width: 130px; }
+  table.edicao input.coord { width: 160px; } table.edicao input.hora { width: 112px; }
+  .rota td small.nahora, .rota td small.tarde { display: block; font-size: 12px; white-space: normal; min-width: 96px; } .rota td small.nahora { color: #17603A; } .rota td small.tarde { color: #B42318; font-weight: 700; } table.edicao input.largo { min-width: 220px; }
+  table.edicao td.vazio, p.vazio { color: var(--muted); text-align: center; padding: 24px; white-space: normal; }
+  .tabela-rolagem.alta { max-height: 420px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+  .tabela-rolagem.alta thead th { position: sticky; top: 0; background: #fff; z-index: 1; box-shadow: 0 1px 0 var(--border); }
+  .bolinha { width: 14px; height: 14px; border-radius: 50%; display: inline-block; vertical-align: -2px; margin-right: 6px; }
+  .etiqueta { font-size: 12.5px; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+  .etiqueta.ok { background: #E3F4EA; color: #17603A; } .etiqueta.ruim { background: #FDE7E4; color: #B42318; } .etiqueta.neutro { background: var(--navy-pale); color: var(--navy-dark); } .etiqueta.meio { background: var(--gold-pale); color: #5c4a00; }
+  .rota h4 { font-size: 14.5px; margin: 14px 0 6px; padding-top: 10px; border-top: 1px dashed var(--border); color: var(--navy); }
+  .rota h3 .etiqueta { font-weight: 400; margin-left: 6px; vertical-align: 2px; }
+  .nota.falta { color: #B42318; font-weight: 600; }
+  .fechar { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-top: 14px; }
+  .aviso { margin: 0; padding: 8px 12px; border-radius: 6px; font-size: 14.5px; background: var(--navy-pale); color: var(--navy-dark); flex: 1; min-width: 220px; }
+  .aviso.erro { background: #FDE7E4; color: #B42318; } .aviso.alerta { background: var(--gold-pale); color: #5c4a00; } .aviso.ok { background: #E3F4EA; color: #17603A; }
+  .mapa-cartao { position: sticky; top: 12px; }
+  @media (max-width: 900px) { .mapa-cartao { position: static; } }
+  .barra-mapa { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+  #mapa { height: 520px; border-radius: 8px; border: 1px solid var(--border); background: #EEF1F5; overflow: hidden; z-index: 0; }
+  #mapa.marcando { cursor: crosshair; outline: 3px solid var(--gold); }
+  #mapa.marcando .leaflet-container, #mapa.marcando.leaflet-container { cursor: crosshair; }
+  #mapa.sem-leaflet svg { width: 100%; height: 100%; display: block; }
+  @media (max-width: 560px) { #mapa { height: 380px; } }
+  .pino { width: 24px; height: 24px; border-radius: 50%; color: #fff; font: 700 12px/20px Calibri, Arial, sans-serif; text-align: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); }
+  .pino.pequeno { width: 14px; height: 14px; margin: 5px; }
+  .pino.deposito { width: 30px; height: 30px; border-radius: 7px; background: var(--gold); color: var(--navy-dark); border-color: var(--navy); font-size: 15px; line-height: 26px; }
+  .legenda .marca { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+  .legenda .marca.deposito { border-radius: 4px; background: var(--gold); border: 2px solid var(--navy); }
+  .titulo-resultado { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+  .titulo-resultado .acoes { margin: 0; }
+  .grade.rotas { grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); align-items: start; }
+  .rota { border-left: 6px solid; }
+  .rota .fatos { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 14.5px; margin: 4px 0 8px; }
+  .rota .carga { font-size: 14px; margin-bottom: 10px; }
+  .rota .barra { height: 10px; background: var(--navy-pale); border-radius: 99px; overflow: hidden; margin-bottom: 4px; }
+  .rota .barra i { display: block; height: 100%; border-radius: 99px; }
+  .rota table td, .rota table th { text-align: right; } .rota table td:nth-child(3), .rota table th:nth-child(3) { text-align: left; }
+  .rota td.cli { white-space: normal; min-width: 150px; } .rota td.cli small { display: block; color: var(--muted); font-size: 12.5px; }
+  .rota .num { display: inline-block; min-width: 22px; height: 22px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 12px; line-height: 22px; text-align: center; }
+  .rota tr.volta td { color: var(--muted); font-style: italic; }
+  .topo-rota { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 10px; }
+  .acoes-rota { display: flex; flex-wrap: wrap; gap: 6px; }
+  button.pequeno { padding: 5px 10px; font-size: 13px; }
+  .rota td.chk { text-align: center; } .rota td.chk input { width: 18px; height: 18px; }
+  .rota tr.feito td { color: var(--muted); } .rota tr.feito td.cli { text-decoration: line-through; } .rota tr.feito .num { background: #C5CAD3 !important; }
+  .rota tr.nova td { background: var(--gold-pale); }
+  .so-impressao { display: none; }
+  #nota-andamento { margin: 0 0 12px; }
+  @media print {
+    @page { margin: 12mm; }
+    header.topo, .abertura, footer, .acoes, .fechar, section:not(#resultado), .barra-mapa .alternar,
+    .titulo-resultado, #r-fonte, #r-cartoes, #r-fora, #nota-andamento, .acoes-rota, .fora-da-impressao { display: none !important; }
+    body { background: #fff; font-size: 12pt; } main { padding: 0; } .faixa { max-width: none; padding: 0; } section { margin: 0; }
+    .grade.rotas { display: block; }
+    .rota { border: 0 !important; border-radius: 0; padding: 0; break-after: page; page-break-after: always; }
+    .rota:last-child { break-after: auto; page-break-after: auto; }
+    .rota h3 { font-size: 20pt; } .rota .fatos { font-size: 11pt; }
+    .rota table { font-size: 11pt; } .rota tr { break-inside: avoid; }
+    .rota td.cli small { font-size: 10pt; color: #333; }
+    .rota table { width: 100%; } .rota td.cli { width: 60%; } .rota td, .rota th { padding-top: 3px !important; padding-bottom: 3px !important; }
+    .rota td.chk input { width: 16px; height: 16px; }
+    .tabela-rolagem { overflow: visible; }
+    .so-impressao { display: block; } .cabecalho-impressao { font-size: 10pt; color: #333; border-bottom: 2px solid #1B365D; padding-bottom: 4px; margin: 0 0 8px; }
+    .rodape-impressao { font-size: 9pt; color: #555; margin-top: 10px; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<header class="topo"><div class="faixa">
+  <img src="data:image/png;base64,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" alt="Aliatti Comércio de Gás">
+  <div class="selo">Estudo de caso com dados simulados<br>Mapa e rotas: OpenStreetMap</div>
+</div></header>
+
+<div class="abertura"><div class="faixa">
+  <p class="olho">Roteirizador de entregas · botijão de gás</p>
+  <h1>Qual a melhor rota para cada veículo?</h1>
+  <p class="resposta">Cadastre os veículos, informe ou carregue a lista de entregas e veja a rota de cada um no mapa, com a <strong>carga a bordo</strong> e o <strong>horário previsto</strong> de cada parada.</p>
+</div></div>
+
+<main><div class="faixa">
+
+<section class="grade duas">
+  <div class="coluna">
+    <div class="cartao">
+      <h2><span class="passo">1</span>Depósito e parâmetros</h2>
+      <div class="campos c3">
+        <label>Nome do depósito<input id="d-nome"></label>
+        <label>Latitude<input id="d-lat" inputmode="decimal" placeholder="-29,2511"></label>
+        <label>Longitude<input id="d-lon" inputmode="decimal" placeholder="-51,5247"></label>
+      </div>
+      <div class="campos c3">
+        <label>Saída do depósito<input id="p-saida" type="time" value="08:00"></label>
+        <label>Minutos por parada<input id="p-parada" type="number" min="0" step="1" value="7"></label>
+        <label>Minutos por recarga<input id="p-recarga" type="number" min="0" step="1" value="10"></label>
+      </div>
+      <div class="campos c3">
+        <label>Divisão das entregas<select id="p-objetivo">
+          <option value="regiao">Um veículo por região</option>
+          <option value="tempo">Menor tempo de entrega</option></select></label>
+        <label>Cidade padrão<input id="p-cidade" value="Garibaldi"></label>
+        <label>UF<input id="p-uf" value="RS" maxlength="2"></label>
+      </div>
+      <div class="campos c3">
+        <label>Tolerância da hora marcada (min)<input id="p-tolerancia" type="number" min="0" step="5" value="15"></label>
+      </div>
+      <div class="opcoes">
+        <label><input type="checkbox" id="p-cheio" checked> Sair com o veículo cheio (reserva para pedidos novos)</label>
+        <label><input type="checkbox" id="p-viagens" checked> Voltar ao depósito para recarregar se faltar capacidade</label>
+        <label><input type="checkbox" id="p-retorno" checked> Voltar ao depósito no fim</label>
+        <label><input type="checkbox" id="p-ruas" checked> Distâncias pelas ruas (precisa de internet)</label>
+      </div>
+      <p class="nota" style="margin:0">Um veículo por região: menor quilometragem, para reduzir o custo. Menor tempo de entrega: divide o trabalho por igual para a última entrega sair mais cedo, indicado para horários de pico. Nos dois, cada veículo atende entregas próximas. A cidade padrão vale para as entregas sem cidade preenchida.</p>
+    </div>
+
+    <div class="cartao">
+      <h2><span class="passo">2</span>Veículos</h2>
+      <div class="tabela-rolagem"><table id="t-veiculos" class="edicao">
+        <thead><tr><th></th><th>Veículo</th><th>Capacidade (botijões)</th><th>Sai hoje</th><th></th></tr></thead><tbody></tbody></table></div>
+      <button type="button" class="secundario" id="btn-add-veiculo">+ Adicionar veículo</button>
+      <p class="nota" id="resumo-carga" style="margin:10px 0 0"></p>
+    </div>
+  </div>
+
+  <div class="cartao mapa-cartao">
+    <div class="barra-mapa">
+      <h2>Mapa</h2>
+      <div class="alternar" role="group" aria-label="Marcar no mapa">
+        <button type="button" id="btn-modo-deposito" aria-pressed="false">Marcar depósito no mapa</button>
+        <button type="button" id="btn-modo-entrega" aria-pressed="false">Adicionar entregas no mapa</button>
+      </div>
+    </div>
+    <p class="nota" id="dica-mapa" style="margin:0 0 6px;min-height:1.2em"></p>
+    <div id="mapa" aria-label="Mapa das rotas"></div>
+    <div class="legenda" id="legenda-mapa" style="margin-top:10px"></div>
+  </div>
+</section>
+
+<section>
+  <div class="cartao">
+    <h2><span class="passo">3</span>Entregas</h2>
+    <p class="nota">Informe rua, número e cidade; o bairro é opcional, mas ajuda em ruas compridas. O endereço é procurado no OpenStreetMap ao criar as rotas (cerca de 1 por segundo). A hora marcada é opcional: se preenchida, a rota é montada para chegar nesse horário. Se o cliente mandou a localização, cole a coordenada ou o link do mapa na última coluna.</p>
+    <div class="acoes">
+      <label class="botao secundario">Carregar arquivo (CSV ou Excel)<input type="file" id="arquivo" accept=".csv,.txt,.xlsx,.xls" hidden></label>
+      <button type="button" class="secundario" id="btn-modelo">Baixar modelo</button>
+      <button type="button" class="secundario" id="btn-add-entrega">+ Adicionar linha</button>
+      <button type="button" class="secundario" id="btn-exemplo">Carregar exemplo</button>
+      <button type="button" class="secundario" id="btn-limpar">Limpar entregas</button>
+      <label class="marcar"><input type="checkbox" id="p-somar"> Somar o arquivo às entregas já listadas</label>
+    </div>
+    <div class="tabela-rolagem alta"><table id="t-entregas" class="edicao">
+      <thead><tr><th>#</th><th>Cliente</th><th>Rua</th><th>Número</th><th>Bairro</th><th>Cidade</th><th>Botijões</th><th>Hora marcada</th><th>Coordenada</th><th>Situação</th><th></th></tr></thead><tbody></tbody></table></div>
+    <div class="fechar">
+      <button type="button" class="principal" id="btn-rotas">Criar rotas</button>
+      <button type="button" class="secundario" id="btn-atualizar" hidden title="Mantém o que já foi entregue e encaixa os pedidos novos">Atualizar rotas em andamento</button>
+      <p class="aviso" id="aviso" role="status" hidden></p>
+    </div>
+  </div>
+</section>
+
+<section id="resultado" hidden>
+  <div class="titulo-resultado">
+    <h2>Rotas do dia</h2>
+    <div class="acoes"><button type="button" class="secundario" id="btn-csv">Baixar rotas (CSV)</button><button type="button" class="secundario" id="btn-imprimir">Imprimir todas (uma folha por veículo)</button></div>
+  </div>
+  <p class="nota" id="nota-andamento">Entrou pedido com os veículos na rua? Marque em "Feito" o que já foi entregue, acrescente o pedido na lista de entregas e clique em "Atualizar rotas em andamento". Depois envie a imagem da rota nova a cada entregador.</p>
+  <p class="sub" id="r-fonte"></p>
+  <div class="grade g4" id="r-cartoes" style="margin-bottom:16px"></div>
+  <div class="grade rotas" id="r-rotas"></div>
+  <div class="cartao" id="r-fora" style="margin-top:16px" hidden></div>
+</section>
+
+<section>
+  <h2>Como funciona</h2>
+  <div class="grade g2i">
+    <div class="cartao">
+      <h3>Método</h3>
+      <ul class="limpa">
+        <li><strong>Distâncias:</strong> tempo e quilômetros entre todos os pontos pelas ruas, calculados pelo OSRM sobre o mapa do OpenStreetMap. Sem internet ou sem resposta, usa linha reta × 1,35 a 25 km/h.</li>
+        <li><strong>Regiões:</strong> as entregas são agrupadas por proximidade, um grupo por veículo, respeitando a capacidade. O grupo que pede mais carga fica com o veículo maior.</li>
+        <li><strong>Ordem:</strong> dentro de cada grupo, cada entrega entra na posição em que menos aumenta o percurso; depois o roteiro é refinado invertendo trechos e mudando paradas de lugar.</li>
+        <li><strong>Ajuste nas divisas:</strong> no modo por região, uma entrega só troca de veículo se o total diminuir sem alongar a rota mais comprida. No modo de menor tempo, troca se isso encurtar o veículo mais demorado dos dois, mesmo rodando um pouco mais.</li>
+        <li><strong>Hora marcada:</strong> a entrega deve começar entre a hora combinada menos a tolerância e a hora mais a tolerância. Chegar antes faz o veículo esperar; chegar depois pesa muito no cálculo. A divisão por região não muda: o que muda é a ordem das paradas do veículo, mesmo que ele rode mais. Uma entrega só passa para outro veículo se não houver ordem que cumpra o horário.</li>
+        <li><strong>Horários:</strong> saída do depósito, mais o tempo de cada trecho, mais os minutos de cada parada.</li>
+        <li><strong>Recarga:</strong> se os pedidos passam da capacidade, uma viagem extra é testada em cada veículo e fica com o que rodar menos quilômetros no total (ou terminar mais cedo, no modo de menor tempo). O veículo volta ao depósito, recarrega e sai de novo.</li>
+        <li><strong>Pedidos novos na rua:</strong> o que foi marcado como feito não muda. Cada veículo continua da última entrega feita, com os botijões que ainda tem; o pedido novo entra no veículo e na posição em que menos aumenta o percurso, sem tirar entregas de outro veículo. Se nenhum tem carga, o mais conveniente volta ao depósito.</li>
+        <li><strong>Carga:</strong> o veículo sai com a soma dos pedidos da rota; a tabela mostra quantos botijões cheios restam depois de cada entrega.</li>
+      </ul>
+    </div>
+    <div class="cartao">
+      <h3>Limites</h3>
+      <ul class="limpa">
+        <li>O resultado é uma boa rota, não a melhor possível comprovada: o método é uma heurística, rápida o bastante para rodar no navegador.</li>
+        <li>Os tempos não consideram trânsito nem pausa do motorista. Se as horas marcadas forem impossíveis de cumprir juntas, a entrega aparece com o atraso previsto.</li>
+        <li>Onde o OpenStreetMap não tem o número das casas, o endereço cai no meio do trecho da rua e fica marcado como "nº aproximado". Informar o bairro e arrastar o marcador no mapa corrigem a posição.</li>
+        <li>A recarga considera que o depósito tem botijões cheios para todas as viagens.</li>
+        <li>Pelas ruas, o limite é de 99 entregas por cálculo; acima disso as distâncias passam a ser em linha reta.</li>
+        <li>Endereço mal escrito pode ser localizado no lugar errado. Confira no mapa antes de sair.</li>
+        <li>Os serviços de mapa, endereços e rotas são públicos e gratuitos, sem garantia de disponibilidade. Para uso diário de uma empresa, o indicado é contratar ou hospedar os próprios.</li>
+        <li>Os clientes e pedidos do exemplo são inventados; os pontos foram sorteados sobre ruas de Garibaldi e Carlos Barbosa.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</div></main>
+
+<footer><div class="faixa">
+  Estudo independente com dados simulados. Não usa dados internos da Aliatti Comércio de Gás. Os dados digitados ou carregados ficam só no seu navegador;
+  endereços e coordenadas são enviados aos serviços públicos do OpenStreetMap e do OSRM para localizar e calcular as rotas. Elaborado por Fabian Aliatti Mayer.
+</div></footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+"use strict";
+/* Roteirizador de entregas: cadastro, leitura de arquivo, otimização (VRP com capacidade), mapa e relatório.
+   Tudo roda no navegador. Serviços externos (opcionais, com reserva): mapa e endereços do OpenStreetMap, rotas do OSRM. */
+
+const CORES = ["#1B365D", "#D9713C", "#1a98b3", "#7a4fb5", "#2e8b57", "#c2378a", "#8a6d00", "#5b6470"];
+const KM_H_RESERVA = 25, FATOR_RUA = 1.35, LIMITE_OSRM = 100, ESPERA_ENDERECO = 1100;
+const OSRM = "https://router.project-osrm.org", NOMINATIM = "https://nominatim.openstreetmap.org/search";
+const XLSX_URL = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+
+const $ = id => document.getElementById(id);
+const num = (v, d = 0) => v.toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const semAcento = t => String(t).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+const coordValida = (lat, lon) => Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180 && !(lat === 0 && lon === 0);
+const paraNumero = v => { if (v == null || v === "") return NaN; const n = Number(String(v).trim().replace(/\s/g, "").replace(",", ".")); return n; };
+const hhmm = min => { const m = Math.round(min); return String(Math.floor(m / 60) % 24).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+const duracao = min => { const m = Math.round(min); return m < 60 ? m + " min" : Math.floor(m / 60) + " h " + String(m % 60).padStart(2, "0") + " min"; };
+
+let proximoId = 1;
+const estado = {
+  deposito: { nome: "Depósito", lat: NaN, lon: NaN },
+  veiculos: [], entregas: [], resultado: null, modoMapa: null,
+};
+
+/* ================= Dados de exemplo (simulados) ================= */
+const EXEMPLO = {
+  deposito: { nome: "Depósito (exemplo)", lat: -29.25110, lon: -51.52475 },
+  veiculos: [["Caminhão 1", 35], ["Caminhão 2", 25], ["Utilitário", 15]],
+  // cliente, rua, número, bairro, cidade, lat, lon, botijões, hora marcada (opcional).
+  // Clientes, números e pedidos inventados; os pontos foram sorteados sobre ruas de Garibaldi e Carlos Barbosa.
+  // As coordenadas já vêm preenchidas para o exemplo abrir na hora; os três últimos mostram a busca pelo endereço.
+  entregas: [
+    ["Cliente 01", "", "", "", "Garibaldi", -29.24516, -51.52313, 1], ["Cliente 02", "Rua Buarque de Macedo", "2140", "Centro", "Garibaldi", -29.25483, -51.53083, 2],
+    ["Cliente 03", "Rua 13 de Maio", "310", "", "Garibaldi", -29.25820, -51.53472, 1], ["Cliente 04", "Rua Hércules Grossi", "95", "", "Garibaldi", -29.25628, -51.53325, 1],
+    ["Restaurante 05", "Rua Florgentino Palhano Ribeiro", "480", "", "Garibaldi", -29.25185, -51.52315, 6, "10:00"], ["Cliente 06", "Rua Ernesto Alves", "222", "", "Garibaldi", -29.25904, -51.53678, 1],
+    ["Cliente 07", "", "", "", "Garibaldi", -29.26000, -51.52525, 2], ["Cliente 08", "Rua Vicente Faraon", "71", "", "Garibaldi", -29.25842, -51.52171, 1],
+    ["Cliente 09", "", "", "", "Garibaldi", -29.26549, -51.52879, 1], ["Cliente 10", "Rua Alencar Araripe", "655", "", "Garibaldi", -29.25220, -51.53220, 2],
+    ["Padaria 11", "Rua Assis Brasil", "128", "", "Garibaldi", -29.25343, -51.52137, 4], ["Cliente 12", "Rua João Prancutti", "340", "", "Garibaldi", -29.24248, -51.52758, 1],
+    ["Cliente 13", "Rua Vicente Dal Bó", "57", "", "Garibaldi", -29.26034, -51.52319, 1], ["Cliente 14", "Rua Antônio Bonadiman", "912", "", "Garibaldi", -29.26734, -51.53671, 2],
+    ["Cliente 15", "Rua General Osório", "45", "Centro", "Garibaldi", -29.25823, -51.52695, 1], ["Lancheria 16", "Rua Manoel Peterlongo Filho", "210", "", "Garibaldi", -29.25926, -51.52764, 5],
+    ["Cliente 17", "Rua Quinze de Novembro", "830", "", "Garibaldi", -29.25959, -51.53988, 1], ["Cliente 18", "", "", "", "Garibaldi", -29.26371, -51.53410, 1],
+    ["Cliente 19", "Rua João Prancutti", "398", "", "Garibaldi", -29.24248, -51.52692, 2], ["Cliente 20", "Rua Florgentino Palhano Ribeiro", "190", "", "Garibaldi", -29.25345, -51.52417, 1],
+    ["Cliente 21", "Rua Doutor Carlos Barbosa", "33", "Centro", "Garibaldi", -29.25373, -51.53185, 1], ["Cliente 22", "Rua Irmã Dorothee", "140", "", "Garibaldi", -29.26477, -51.52924, 3],
+    ["Cliente 23", "Rua Pinheiro Machado", "505", "", "Garibaldi", -29.25586, -51.53955, 1], ["Cliente 24", "Rua João Ludovico Salvador", "88", "", "Garibaldi", -29.25481, -51.52239, 1],
+    ["Hotel 25", "Rua Frei Nicolau Lucian", "600", "", "Garibaldi", -29.26448, -51.51451, 8, "11:00"], ["Cliente 26", "Rua Irmã Camila Parmagnani", "75", "", "Carlos Barbosa", -29.30414, -51.50166, 1],
+    ["Cliente 27", "Rua Júlio de Castilhos", "1020", "", "Carlos Barbosa", -29.30112, -51.49938, 2], ["Cliente 28", "Rua 21 de Abril", "64", "", "Carlos Barbosa", -29.28977, -51.49932, 1],
+    ["Cliente 29", "", "", "", "Carlos Barbosa", -29.29516, -51.49352, 1], ["Refeitório 30", "Rua Elisa Tramontina", "300", "", "Carlos Barbosa", -29.29294, -51.50359, 10, "09:00"],
+    ["Cliente 31", "Rua Cristóvão Colombo", "415", "", "Carlos Barbosa", -29.29977, -51.49683, 1], ["Cliente 32", "Rua Imigrantes", "52", "", "Carlos Barbosa", -29.30566, -51.50005, 2],
+    ["Cliente 33", "Rua Princesa Isabel", "230", "", "Carlos Barbosa", -29.29443, -51.49630, 1], ["Cliente 34", "Rua Pinheiro Machado", "118", "", "Carlos Barbosa", -29.29252, -51.50670, 1],
+    ["Cliente 35", "Rua 15 de Novembro", "77", "Centro", "Carlos Barbosa", -29.29701, -51.50474, 3], ["Cliente 36", "Rua Walter Jobim", "260", "", "Carlos Barbosa", -29.29858, -51.50596, 1],
+    ["Mercado 37", "Avenida Ivo Tramontina", "1500", "", "Carlos Barbosa", -29.29468, -51.50058, 6], ["Cliente 38", "Rua Verona", "39", "", "Carlos Barbosa", -29.30478, -51.49934, 1],
+    ["Cliente 39", "Avenida Presidente Kennedy", "700", "", "Carlos Barbosa", -29.29891, -51.49783, 2],
+    ["Cliente 40", "Rua Júlio de Castilhos", "120", "Centro", "Garibaldi", NaN, NaN, 2], ["Cliente 41", "Rua Buarque de Macedo", "3300", "Centro", "Garibaldi", NaN, NaN, 1],
+    ["Cliente 42", "Rua Rio Branco", "85", "", "Carlos Barbosa", NaN, NaN, 2],
+  ],
+};
+
+function novaEntrega(dados) {
+  return Object.assign({ id: proximoId++, cliente: "", rua: "", numero: "", bairro: "", cidade: "", hora: "", lat: NaN, lon: NaN, qtd: 1, origem: "" }, dados);
+}
+function enderecoTexto(e) {
+  const rua = [e.rua, e.numero].filter(Boolean).join(", ");
+  return [rua, e.bairro, e.cidade].filter(Boolean).join(" · ");
+}
+function carregarExemplo() {
+  estado.deposito = { ...EXEMPLO.deposito };
+  estado.veiculos = EXEMPLO.veiculos.map(([nome, cap]) => ({ id: proximoId++, nome, cap, ativo: true }));
+  estado.entregas = EXEMPLO.entregas.map(([cliente, rua, numero, bairro, cidade, lat, lon, qtd, hora]) => novaEntrega({ cliente, rua, numero, bairro, cidade, lat, lon, qtd, hora: hora || "", origem: coordValida(lat, lon) ? "coord" : "" }));
+  estado.resultado = null;
+  desenharTudo();
+}
+
+/* ================= Leitura de arquivo ================= */
+const CAMPOS = {
+  cliente: ["cliente", "nome", "razao social", "destinatario"],
+  rua: ["rua", "logradouro", "endereco", "endereço", "address", "avenida"],
+  numero: ["numero", "número", "num", "nº", "n", "no"],
+  bairro: ["bairro"],
+  cidade: ["cidade", "municipio", "município"],
+  qtd: ["qtd", "quantidade", "botijoes", "botijões", "qtde", "volume", "p13"],
+  lat: ["lat", "latitude"], lon: ["lon", "lng", "long", "longitude"],
+  coord: ["coordenada", "coordenadas", "localizacao", "localização"],
+  hora: ["hora", "horario", "horário", "hora marcada", "agendado", "agendamento", "hora_marcada"],
+};
+/* Aceita "-29.2562, -51.5269", "-29,2562; -51,5269" e links de mapa que tragam a coordenada. */
+/* Aceita "9:30", "09h30", "14h", "14" e devolve "HH:MM" (ou "" se não for hora). */
+function lerHora(texto) {
+  const m = String(texto || "").trim().toLowerCase().match(/^(\d{1,2})\s*(?:[:h]\s*(\d{2})?)?\s*(?:min|hs|h)?$/);
+  if (!m) return "";
+  const h = +m[1], min = +(m[2] || 0);
+  return h < 24 && min < 60 ? String(h).padStart(2, "0") + ":" + String(min).padStart(2, "0") : "";
+}
+const minutosDe = hhmmTexto => { const [h, m] = hhmmTexto.split(":").map(Number); return h * 60 + m; };
+function lerCoordenada(texto) {
+  const t = String(texto || "");
+  let m = t.match(/(-?\d{1,2}\.\d+)\s*[,;\s]\s*(-?\d{1,3}\.\d+)/) || t.match(/(-?\d{1,2},\d+)\s*[;\s]\s*(-?\d{1,3},\d+)/);
+  if (!m) return null;
+  const lat = paraNumero(m[1]), lon = paraNumero(m[2]);
+  return coordValida(lat, lon) ? { lat, lon } : null;
+}
+function separarLinha(linha, sep) {
+  const out = []; let atual = "", aspas = false;
+  for (let i = 0; i < linha.length; i++) {
+    const c = linha[i];
+    if (c === '"') { if (aspas && linha[i + 1] === '"') { atual += '"'; i++; } else aspas = !aspas; }
+    else if (c === sep && !aspas) { out.push(atual); atual = ""; }
+    else atual += c;
+  }
+  out.push(atual); return out.map(v => v.trim());
+}
+function textoParaLinhas(texto) {
+  const linhas = texto.replace(/^﻿/, "").split(/\r?\n/).filter(l => l.trim() !== "");
+  if (!linhas.length) return [];
+  const conta = s => (linhas[0].match(new RegExp("\\" + s, "g")) || []).length;
+  const sep = conta(";") >= conta("\t") && conta(";") >= conta(",") && conta(";") > 0 ? ";" : conta("\t") > conta(",") ? "\t" : ",";
+  return linhas.map(l => separarLinha(l, sep));
+}
+function linhasParaEntregas(linhas) {
+  if (!linhas.length) return { entregas: [], avisos: ["O arquivo está vazio."] };
+  const cab = linhas[0].map(semAcento), mapa = {};
+  for (const campo in CAMPOS) mapa[campo] = cab.findIndex(c => CAMPOS[campo].map(semAcento).includes(c));
+  const temCabecalho = Object.values(mapa).some(i => i >= 0);
+  if (!temCabecalho) Object.assign(mapa, { cliente: 0, rua: 1, numero: 2, bairro: 3, cidade: 4, qtd: 5 });   // ordem do modelo
+  const entregas = [], avisos = [];
+  linhas.slice(temCabecalho ? 1 : 0).forEach((l, i) => {
+    const pega = campo => mapa[campo] >= 0 && mapa[campo] < l.length ? String(l[mapa[campo]] || "").trim() : "";
+    let lat = paraNumero(pega("lat")), lon = paraNumero(pega("lon"));
+    const solta = lerCoordenada(pega("coord"));
+    if (!coordValida(lat, lon) && solta) { lat = solta.lat; lon = solta.lon; }
+    const qtdLida = paraNumero(pega("qtd")), tem = coordValida(lat, lon);
+    const e = novaEntrega({ cliente: pega("cliente") || "Entrega " + (entregas.length + 1), rua: pega("rua"), numero: pega("numero"), bairro: pega("bairro"), cidade: pega("cidade"), hora: lerHora(pega("hora")),
+      lat: tem ? lat : NaN, lon: tem ? lon : NaN, qtd: Number.isFinite(qtdLida) && qtdLida > 0 ? Math.round(qtdLida) : 1, origem: tem ? "coord" : "" });
+    if (!e.rua && !tem) { avisos.push(`Linha ${i + (temCabecalho ? 2 : 1)}: sem rua e sem coordenada, ignorada.`); return; }
+    entregas.push(e);
+  });
+  return { entregas, avisos };
+}
+function carregarScript(url) {
+  return new Promise((ok, erro) => { const s = document.createElement("script"); s.src = url; s.onload = ok; s.onerror = () => erro(new Error("biblioteca indisponível")); document.head.appendChild(s); });
+}
+async function lerArquivo(arquivo) {
+  if (/\.xlsx?$/i.test(arquivo.name)) {
+    if (!window.XLSX) await carregarScript(XLSX_URL);
+    const livro = window.XLSX.read(await arquivo.arrayBuffer(), { type: "array" });
+    return window.XLSX.utils.sheet_to_json(livro.Sheets[livro.SheetNames[0]], { header: 1, raw: true, defval: "" }).filter(l => l.some(c => String(c).trim() !== "")).map(l => l.map(c => String(c)));
+  }
+  return textoParaLinhas(await arquivo.text());
+}
+
+/* ================= Distâncias ================= */
+function linhaReta(a, b) {
+  const R = 6371, rad = Math.PI / 180, dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+async function buscar(url, ms = 15000) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
+  try { const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) throw new Error("HTTP " + r.status); return await r.json(); }
+  finally { clearTimeout(t); }
+}
+/* Devolve { km[i][j], min[i][j], fonte }. Tenta as ruas reais (OSRM); se falhar, linha reta com fator. */
+async function matriz(pontos, usarRuas) {
+  const n = pontos.length;
+  if (usarRuas && n <= LIMITE_OSRM) {
+    try {
+      const coords = pontos.map(p => p.lon.toFixed(6) + "," + p.lat.toFixed(6)).join(";");
+      const r = await buscar(`${OSRM}/table/v1/driving/${coords}?annotations=duration,distance`);
+      if (r.code === "Ok" && r.durations.length === n && r.durations.every(l => l.every(v => v != null)))
+        return { km: r.distances.map(l => l.map(v => v / 1000)), min: r.durations.map(l => l.map(v => v / 60)), fonte: "ruas" };
+    } catch (e) { /* cai para a reserva */ }
+  }
+  const km = pontos.map(a => pontos.map(b => linhaReta(a, b) * FATOR_RUA));
+  return { km, min: km.map(l => l.map(v => v / KM_H_RESERVA * 60)), fonte: usarRuas && n > LIMITE_OSRM ? "reta-limite" : "reta" };
+}
+
+/* ================= Otimização =================
+   Problema: dividir as entregas entre os veículos (respeitando a capacidade) e ordenar cada rota.
+   Nos dois modos cada veículo fica com um território, para as rotas não se cruzarem.
+
+   1. Agrupamento com capacidade (k-medoides): um grupo por viagem, cada entrega no grupo do centro mais
+      próximo em que ainda cabe. Os centros são recalculados até estabilizar. Vários pontos de partida são
+      testados e fica o melhor.
+   2. Cada grupo vira uma rota, ordenada por inserção mais barata e melhorada por 2-opt e remanejamento.
+   3. Ajuste nas divisas, que é onde os modos diferem:
+      - "regiao" (menor quilometragem): uma entrega só troca de veículo se o total diminuir sem alongar a
+        rota mais comprida.
+      - "tempo" (menor tempo de entrega): uma entrega troca de veículo se isso encurtar o mais demorado dos
+        dois. O trabalho fica dividido por igual e a última entrega sai mais cedo, ao custo de alguns km.
+
+   Custo de uma rota = minutos dirigindo + minutos parado. */
+function tempoRota(rota, M, parada, retorno) {
+  if (!rota.length) return 0;
+  let t = M[0][rota[0]];
+  for (let i = 1; i < rota.length; i++) t += M[rota[i - 1]][rota[i]];
+  if (retorno) t += M[rota[rota.length - 1]][0];
+  return t + parada * rota.length;
+}
+/* Custo de uma rota para a otimização: duração (com esperas) mais multa por atraso em hora marcada.
+   o.janelas[i] = [mais cedo, mais tarde] em minutos do dia, ou nada. Chegar cedo espera; chegar tarde custa caro. */
+const MULTA_ATRASO = 30, MULTA_POR_MINUTO = 10;
+function custoRota(rota, M, o, inicio) {
+  if (!rota.length) return 0;
+  if (!o.janelas) return tempoRota(rota, M, o.parada, o.retorno);
+  let t = inicio, multa = 0, ant = 0;
+  for (const i of rota) {
+    t += M[ant][i];
+    const j = o.janelas[i];
+    if (j) { if (t < j[0]) t = j[0]; else if (t > j[1]) multa += MULTA_ATRASO + MULTA_POR_MINUTO * (t - j[1]); }
+    t += o.parada; ant = i;
+  }
+  if (o.retorno) t += M[ant][0];
+  return t - inicio + multa;
+}
+const soma = v => v.reduce((s, x) => s + x, 0), maior = v => v.reduce((m, x) => Math.max(m, x), 0);
+
+/* Busca local. dono[i] diz a que veículo pertence a rota i (um veículo pode ter mais de uma viagem). */
+function melhorar(rotas, M, demanda, capacidades, opcoes, modo, dono) {
+  dono = dono || rotas.map((_, i) => i);
+  const { recarga = 0 } = opcoes, saida = opcoes.saida || 0, nv = rotas.length, EPS = 1e-6;
+  // hora em que cada viagem começa: as viagens seguintes do mesmo veículo saem depois das anteriores e da recarga
+  const inicio = rotas.map(() => saida);
+  const T = (r, i) => custoRota(r, M, opcoes, inicio[i]);
+  const tempos = rotas.map((r, i) => T(r, i));
+  const acertarInicios = () => {
+    if (!opcoes.janelas) return;
+    const fim = {};
+    for (let i = 0; i < nv; i++) { if (!rotas[i].length) continue; const v = dono[i]; inicio[i] = fim[v] === undefined ? saida : fim[v] + recarga; tempos[i] = T(rotas[i], i); fim[v] = inicio[i] + tempos[i]; }
+  };
+  acertarInicios();
+  const carga = rotas.map(r => soma(r.map(i => demanda[i])));
+  // tempo de um veículo: soma das suas viagens mais as recargas entre elas
+  const TV = v => { let t = 0, n = 0; for (let i = 0; i < nv; i++) if (dono[i] === v && rotas[i].length) { t += tempos[i]; n++; } return t + recarga * Math.max(0, n - 1); };
+  let melhorou = true, voltas = 0;
+  while (melhorou && voltas++ < 200) {
+    melhorou = false; acertarInicios();
+    // dentro da rota: inverter um trecho (2-opt) e mudar uma entrega de posição
+    for (let a = 0; a < nv; a++) {
+      for (let i = 0; i < rotas[a].length - 1; i++) for (let j = i + 1; j < rotas[a].length; j++) {
+        const nova = rotas[a].slice(0, i).concat(rotas[a].slice(i, j + 1).reverse(), rotas[a].slice(j + 1)), t = T(nova, a);
+        if (t < tempos[a] - EPS) { rotas[a] = nova; tempos[a] = t; melhorou = true; }
+      }
+      for (let i = 0; i < rotas[a].length; i++) {
+        const no = rotas[a][i], sem = rotas[a].slice(0, i).concat(rotas[a].slice(i + 1));
+        let melhor = null;
+        for (let p = 0; p <= sem.length; p++) { if (p === i) continue; const nova = sem.slice(0, p).concat([no], sem.slice(p)), t = T(nova, a); if (t < tempos[a] - EPS && (!melhor || t < melhor.t)) melhor = { nova, t }; }
+        if (melhor) { rotas[a] = melhor.nova; tempos[a] = melhor.t; melhorou = true; }
+      }
+    }
+    if (modo === "ordem") continue;                              // só reordena dentro de cada rota
+    // entre rotas: mover uma entrega
+    for (let a = 0; a < nv; a++) for (let ia = 0; ia < rotas[a].length; ia++) {
+      const no = rotas[a][ia], semNo = rotas[a].slice(0, ia).concat(rotas[a].slice(ia + 1)), tSem = T(semNo, a), teto = maior(tempos);
+      if (!semNo.length) continue;                               // não esvazia uma viagem
+      let melhor = null;
+      for (let b = 0; b < nv; b++) {
+        if (b === a || carga[b] + demanda[no] > capacidades[b]) continue;
+        const mesmo = dono[a] === dono[b], va = TV(dono[a]), vb = TV(dono[b]);
+        for (let p = 0; p <= rotas[b].length; p++) {
+          const nova = rotas[b].slice(0, p).concat([no], rotas[b].slice(p)), tb = T(nova, b), ganho = tempos[a] + tempos[b] - tSem - tb;
+          let nota;
+          if (modo === "tempo" && !mesmo) {
+            const antes = Math.max(va, vb), depois = Math.max(va - tempos[a] + tSem, vb - tempos[b] + tb + (rotas[b].length ? 0 : recarga));
+            if (!(depois < antes - EPS || (depois <= antes + EPS && ganho > EPS))) continue;
+            nota = (antes - depois) * 1000 + ganho;
+          } else {
+            if (ganho <= EPS || Math.max(tSem, tb) > teto + EPS) continue;
+            nota = ganho;
+          }
+          if (!melhor || nota > melhor.nota) melhor = { b, nova, tb, nota };
+        }
+      }
+      if (melhor) {
+        rotas[a] = semNo; tempos[a] = tSem; rotas[melhor.b] = melhor.nova; tempos[melhor.b] = melhor.tb;
+        carga[a] -= demanda[no]; carga[melhor.b] += demanda[no]; melhorou = true; ia--;
+      }
+    }
+    // entre rotas: trocar duas entregas
+    for (let a = 0; a < nv; a++) for (let b = a + 1; b < nv; b++) for (let ia = 0; ia < rotas[a].length; ia++) for (let ib = 0; ib < rotas[b].length; ib++) {
+      const x = rotas[a][ia], y = rotas[b][ib];
+      if (carga[a] - demanda[x] + demanda[y] > capacidades[a] || carga[b] - demanda[y] + demanda[x] > capacidades[b]) continue;
+      const teto = maior(tempos), mesmo = dono[a] === dono[b], va = TV(dono[a]), vb = TV(dono[b]);
+      rotas[a][ia] = y; rotas[b][ib] = x; const ta = T(rotas[a], a), tb = T(rotas[b], b), ganho = tempos[a] + tempos[b] - ta - tb;
+      let aceita;
+      if (modo === "tempo" && !mesmo) { const antes = Math.max(va, vb), depois = Math.max(va - tempos[a] + ta, vb - tempos[b] + tb); aceita = depois < antes - EPS || (depois <= antes + EPS && ganho > EPS); }
+      else aceita = ganho > EPS && Math.max(ta, tb) <= teto + EPS;
+      if (aceita) { tempos[a] = ta; tempos[b] = tb; carga[a] += demanda[y] - demanda[x]; carga[b] += demanda[x] - demanda[y]; melhorou = true; }
+      else { rotas[a][ia] = x; rotas[b][ib] = y; }
+    }
+  }
+  return tempos;
+}
+
+/* Ordena as entregas de um grupo por inserção mais barata. */
+function rotaPorInsercao(nos, M, opcoes) {
+  let rota = [];
+  const T = r => custoRota(r, M, opcoes, opcoes.saida || 0);
+  const faltam = nos.slice().sort((a, b) => M[0][b] - M[0][a]);     // começa pelos mais distantes do depósito
+  for (const no of faltam) {
+    let melhor = null;
+    for (let p = 0; p <= rota.length; p++) { const nova = rota.slice(0, p).concat([no], rota.slice(p)), t = T(nova); if (!melhor || t < melhor.t) melhor = { nova, t }; }
+    rota = melhor.nova;
+  }
+  return rota;
+}
+
+/* Agrupa as entregas em torno de centros, um grupo por veículo, respeitando a capacidade. */
+function agrupar(D, demanda, capacidades, sementes) {
+  const n = demanda.length - 1, k = sementes.length;
+  let centros = sementes.slice(), grupos = [], veiculoDoGrupo = [], fora = [];
+  for (let volta = 0; volta < 20; volta++) {
+    // o grupo que naturalmente pede mais carga fica com o veículo maior
+    const natural = centros.map(() => 0);
+    for (let i = 1; i <= n; i++) { let m = 0; for (let c = 1; c < k; c++) if (D[i][centros[c]] < D[i][centros[m]]) m = c; natural[m] += demanda[i]; }
+    const ordemGrupos = natural.map((d, c) => c).sort((a, b) => natural[b] - natural[a]);
+    const ordemVeiculos = capacidades.map((c, v) => v).sort((a, b) => capacidades[b] - capacidades[a]);
+    veiculoDoGrupo = []; ordemGrupos.forEach((c, pos) => { veiculoDoGrupo[c] = ordemVeiculos[pos]; });
+    // quem tem mais a perder escolhe primeiro
+    const itens = [];
+    for (let i = 1; i <= n; i++) { const d = centros.map(c => D[i][c]).sort((a, b) => a - b); itens.push({ i, pressa: (d.length > 1 ? d[1] - d[0] : 0) + demanda[i] * 1e-3 }); }
+    itens.sort((a, b) => b.pressa - a.pressa);
+    grupos = centros.map(() => []); fora = [];
+    const livre = centros.map((_, c) => capacidades[veiculoDoGrupo[c]]);
+    for (const { i } of itens) {
+      const ordem = centros.map((_, c) => c).sort((a, b) => D[i][centros[a]] - D[i][centros[b]]), c = ordem.find(g => livre[g] >= demanda[i]);
+      if (c === undefined) fora.push(i); else { grupos[c].push(i); livre[c] -= demanda[i]; }
+    }
+    const novos = grupos.map((g, c) => {
+      if (!g.length) return centros[c];
+      let melhor = g[0], custo = Infinity;
+      for (const cand of g) { let s = 0; for (const j of g) s += D[cand][j]; if (s < custo) { custo = s; melhor = cand; } }
+      return melhor;
+    });
+    if (novos.every((c, i) => c === centros[i])) break;
+    centros = novos;
+  }
+  return { grupos, veiculoDoGrupo, fora };
+}
+
+/* Minutos de atraso (em hora marcada) de uma rota que sai no minuto "inicio", e a hora em que ela termina. */
+function simularRota(rota, M, o, inicio) {
+  let t = inicio, atraso = 0, ant = 0;
+  for (const i of rota) {
+    t += M[ant][i];
+    const j = o.janelas && o.janelas[i];
+    if (j) { if (t < j[0]) t = j[0]; else if (t > j[1]) atraso += t - j[1]; }
+    t += o.parada; ant = i;
+  }
+  return { fim: rota.length ? t + M[ant][0] : inicio, atraso };
+}
+/* Para veículos com mais de uma viagem: põe as viagens na ordem de menor atraso. Devolve o atraso que sobra. */
+function ordenarViagens(rotas, dono, M, o) {
+  let atrasoTotal = 0;
+  for (const v of new Set(dono)) {
+    const idx = dono.map((d, i) => d === v && rotas[i].length ? i : -1).filter(i => i >= 0);
+    const avaliar = ordem => { let t = o.saida || 0, atraso = 0; ordem.forEach((r, k) => { if (k) t += o.recarga || 0; const s = simularRota(r, M, o, t); atraso += s.atraso; t = s.fim; }); return { atraso, fim: t }; };
+    let melhor = { ordem: idx.map(i => rotas[i]), ...avaliar(idx.map(i => rotas[i])) };
+    if (idx.length > 1 && idx.length <= 5) for (const ordem of permutacoes(idx.map(i => rotas[i]))) {
+      const a = avaliar(ordem);
+      if (a.atraso < melhor.atraso - 1e-6 || (Math.abs(a.atraso - melhor.atraso) <= 1e-6 && a.fim < melhor.fim - 1e-6)) melhor = { ordem, ...a };
+    }
+    idx.forEach((i, k) => { rotas[i] = melhor.ordem[k]; });
+    atrasoTotal += melhor.atraso;
+  }
+  return atrasoTotal;
+}
+
+function porRegiao(M, demanda, capacidades, opcoes) {
+  const n = M.length - 1, nv = capacidades.length, k = Math.min(nv, n);
+  const D = M.map((l, i) => l.map((v, j) => (v + M[j][i]) / 2));     // distância simétrica entre pontos
+  let semente = 12345; const sorteio = () => (semente = (semente * 16807) % 2147483647) / 2147483647;
+  let melhor = null;
+  for (let tentativa = 0; tentativa < 12; tentativa++) {
+    // pontos de partida bem espalhados: o primeiro varia, os outros são os mais distantes dos já escolhidos
+    const sementes = [];
+    if (tentativa === 0) { let far = 1; for (let i = 2; i <= n; i++) if (D[0][i] > D[0][far]) far = i; sementes.push(far); }
+    else sementes.push(1 + Math.floor(sorteio() * n));
+    while (sementes.length < k) {
+      let prox = -1, dist = -1;
+      for (let i = 1; i <= n; i++) { if (sementes.includes(i)) continue; const d = Math.min(...sementes.map(s => D[i][s])); if (d > dist) { dist = d; prox = i; } }
+      sementes.push(prox);
+    }
+    const { grupos, veiculoDoGrupo, fora } = agrupar(D, demanda, capacidades, sementes);
+    const rotas = capacidades.map(() => []);
+    // a divisão por região é feita sem olhar as horas marcadas; elas entram depois, na ordem das paradas
+    const semHora = { ...opcoes, janelas: null };
+    grupos.forEach((g, c) => { rotas[veiculoDoGrupo[c]] = rotaPorInsercao(g, M, semHora); });
+    // o que não coube no grupo mais próximo tenta entrar em qualquer veículo com espaço
+    const carga = rotas.map(r => soma(r.map(i => demanda[i]))), sobra = [];
+    for (const i of fora) {
+      let escolha = null;
+      for (let v = 0; v < nv; v++) {
+        if (carga[v] + demanda[i] > capacidades[v]) continue;
+        const antes = custoRota(rotas[v], M, semHora, opcoes.saida || 0);
+        for (let p = 0; p <= rotas[v].length; p++) { const nova = rotas[v].slice(0, p).concat([i], rotas[v].slice(p)), custo = custoRota(nova, M, semHora, opcoes.saida || 0) - antes; if (!escolha || custo < escolha.custo) escolha = { v, nova, custo }; }
+      }
+      if (escolha) { rotas[escolha.v] = escolha.nova; carga[escolha.v] += demanda[i]; } else sobra.push(i);
+    }
+    const modo = opcoes.modo === "tempo" ? "tempo" : "regiao", dono = opcoes.dono || rotas.map((_, i) => i);
+    const tempos = melhorar(rotas, M, demanda, capacidades, semHora, modo, dono);
+    const porVeiculo = {}; tempos.forEach((t, i) => { if (rotas[i].length) porVeiculo[dono[i]] = (porVeiculo[dono[i]] === undefined ? 0 : porVeiculo[dono[i]] + (opcoes.recarga || 0)) + t; });
+    const demorado = maior(Object.values(porVeiculo));
+    // "regiao": menor tempo total, com leve preferência por dividir o trabalho. "tempo": termina mais cedo.
+    const nota = (modo === "tempo" ? demorado + 0.05 * soma(tempos) : soma(tempos) + 0.4 * maior(tempos)) + sobra.length * 1e6;
+    if (!melhor || nota < melhor.nota - 1e-6) melhor = { rotas, fora: sobra, nota };
+  }
+  if (opcoes.janelas) {
+    // Horas marcadas entram depois de definida a divisão por região.
+    const rotas = melhor.rotas, modo = opcoes.modo === "tempo" ? "tempo" : "regiao", dono = opcoes.dono || rotas.map((_, i) => i);
+    // 1º: cada entrega fica no seu veículo; muda só a ordem das paradas e das viagens
+    ordenarViagens(rotas, dono, M, opcoes); melhorar(rotas, M, demanda, capacidades, opcoes, "ordem", dono);
+    const atraso = ordenarViagens(rotas, dono, M, opcoes);
+    melhorar(rotas, M, demanda, capacidades, opcoes, "ordem", dono);
+    // 2º: só se ainda sobrar atraso, a entrega pode passar para outro veículo
+    if (atraso > 0.5) { melhorar(rotas, M, demanda, capacidades, opcoes, modo, dono); ordenarViagens(rotas, dono, M, opcoes); melhorar(rotas, M, demanda, capacidades, opcoes, "ordem", dono); }
+  }
+  return { rotas: melhor.rotas, fora: melhor.fora };
+}
+
+function otimizar(M, demanda, capacidades, opcoes) { return porRegiao(M, demanda, capacidades, opcoes); }
+
+/* Hora em que o veículo mais demorado termina, em minutos desde a saída (viagens mais recargas). */
+function tempoDoMaisDemorado(rotas, dono, M, opcoes) {
+  const porVeiculo = {};
+  rotas.forEach((r, i) => { if (!r.length) return; const v = dono[i]; porVeiculo[v] = (porVeiculo[v] === undefined ? 0 : porVeiculo[v] + (opcoes.recarga || 0)) + tempoRota(r, M, opcoes.parada, true); });
+  return maior(Object.values(porVeiculo));
+}
+
+/* Viagens com recarga: quando os pedidos passam da capacidade, um veículo volta ao depósito, recarrega e sai
+   de novo. Cada viagem extra é testada em cada veículo e fica com o que deixar menos entregas de fora e, no
+   empate, rodar menos quilômetros (modo "regiao") ou terminar mais cedo (modo "tempo").
+   Devolve as rotas (uma por viagem) e o veículo de cada uma. */
+function planejarViagens(M, K, demanda, capacidades, opcoes, permitirRecarga) {
+  let caps = capacidades.slice(), dono = capacidades.map((_, v) => v), sol = otimizar(M, demanda, caps, opcoes);
+  const porTempo = opcoes.modo === "tempo";
+  const kmTotal = (rotas, donos) => {
+    let km = 0;
+    capacidades.forEach((_, v) => { const minhas = rotas.filter((r, i) => donos[i] === v && r.length); minhas.forEach((r, j) => { km += kmRota(r, K, j < minhas.length - 1 || opcoes.retorno); }); });
+    return km;
+  };
+  const maiorCap = Math.max(...capacidades);
+  for (let extra = 0; permitirRecarga && extra < 12 && sol.fora.some(i => demanda[i] <= maiorCap); extra++) {
+    let melhor = null;
+    capacidades.forEach((cap, v) => {
+      const caps2 = caps.concat([cap]), dono2 = dono.concat([v]), s = otimizar(M, demanda, caps2, { ...opcoes, dono: dono2 });
+      const km = porTempo ? tempoDoMaisDemorado(s.rotas, dono2, M, opcoes) : kmTotal(s.rotas, dono2);      // critério de desempate
+      if (!melhor || s.fora.length < melhor.s.fora.length || (s.fora.length === melhor.s.fora.length && km < melhor.km - 1e-9)) melhor = { s, km, caps2, dono2 };
+    });
+    if (melhor.s.fora.length >= sol.fora.length) break;        // a viagem extra não ajudou
+    sol = melhor.s; caps = melhor.caps2; dono = melhor.dono2;
+  }
+  return { rotas: sol.rotas, dono, fora: sol.fora };
+}
+
+/* Referência para medir o ganho: entregas na ordem da lista, enchendo um veículo de cada vez
+   (e, com recarga, voltando ao primeiro veículo quando todos já saíram). */
+function ordemDaLista(demanda, capacidades, comRecarga) {
+  const rotas = [], dono = []; let v = 0, atual = [], carga = 0, voltas = 0;
+  const fechar = () => { if (atual.length) { rotas.push(atual); dono.push(v); } atual = []; carga = 0; v++; if (v >= capacidades.length) { v = 0; voltas++; } };
+  for (let i = 1; i < demanda.length; i++) {
+    if (demanda[i] > Math.max(...capacidades)) continue;
+    let tentativas = 0;
+    while (carga + demanda[i] > capacidades[v] && tentativas++ <= capacidades.length) fechar();
+    if (voltas > 0 && !comRecarga) break;
+    atual.push(i); carga += demanda[i];
+  }
+  if (atual.length && (voltas === 0 || comRecarga)) { rotas.push(atual); dono.push(v); }
+  return { rotas, dono };
+}
+function kmRota(rota, K, retorno) {
+  if (!rota.length) return 0;
+  let k = K[0][rota[0]];
+  for (let i = 1; i < rota.length; i++) k += K[rota[i - 1]][rota[i]];
+  return k + (retorno ? K[rota[rota.length - 1]][0] : 0);
+}
+function kmDasViagens(rotas, dono, nv, K, retorno) {
+  let km = 0;
+  for (let v = 0; v < nv; v++) { const minhas = rotas.filter((r, i) => dono[i] === v && r.length); minhas.forEach((r, j) => { km += kmRota(r, K, j < minhas.length - 1 || retorno); }); }
+  return km;
+}
+
+/* ================= Rotas em andamento =================
+   Entraram pedidos com os veículos já na rua. O que já foi entregue fica como está; cada veículo continua de
+   onde parou, com os botijões que ainda tem a bordo; os pedidos novos entram no veículo e na posição em que
+   menos aumentam o custo. Quem não tem carga para o pedido novo volta ao depósito e faz outra viagem.
+
+   Cada veículo é descrito por: { cap, naRua, inicioNo, inicioHora, limite0, viagens: [[nós], ...] }
+   viagens[0] é a viagem em curso (ou a próxima, se o veículo está no depósito); limite0 é quanto ele ainda
+   pode entregar nela: o que resta a bordo se está na rua, ou a capacidade se está no depósito. */
+function custoEmAndamento(v, M, K, o) {
+  let t = v.inicioHora, pos = v.naRua ? v.inicioNo : 0, multa = 0, km = 0, dirigindo = 0;
+  const viagens = v.viagens.map((x, j) => ({ x, j })).filter(({ x, j }) => x.length || j === 0);
+  viagens.forEach(({ x }, k) => {
+    if (k > 0) t += o.recarga || 0;
+    for (const i of x) {
+      t += M[pos][i]; km += K[pos][i]; dirigindo += M[pos][i];
+      const jan = o.janelas && o.janelas[i];
+      if (jan) { if (t < jan[0]) t = jan[0]; else if (t > jan[1]) multa += MULTA_ATRASO + MULTA_POR_MINUTO * (t - jan[1]); }
+      t += o.parada; pos = i;
+    }
+    if ((k < viagens.length - 1 || o.retorno) && pos !== 0) { t += M[pos][0]; km += K[pos][0]; dirigindo += M[pos][0]; pos = 0; }
+  });
+  // custo = tempo dirigindo + multa por atraso. A espera por hora marcada não entra: senão um pedido novo
+  // distante pareceria "de graça" só porque o veículo teria de esperar de qualquer jeito.
+  return { custo: dirigindo + multa + 0.001 * (t - v.inicioHora), km, fim: t, multa };
+}
+function replanejarNucleo(M, K, demanda, veiculos, novas, o) {
+  const carga = x => x.reduce((s, i) => s + demanda[i], 0), limite = (v, j) => j === 0 ? v.limite0 : v.cap;
+  const custo = v => custoEmAndamento(v, M, K, o).custo, fora = [];
+  // primeiro os pedidos com hora marcada (do mais cedo ao mais tarde), depois os mais distantes do depósito
+  const fila = novas.slice().sort((a, b) => { const ja = o.janelas && o.janelas[a], jb = o.janelas && o.janelas[b]; return ja && jb ? ja[0] - jb[0] : ja ? -1 : jb ? 1 : M[0][b] - M[0][a]; });
+  for (const i of fila) {
+    let melhor = null;
+    veiculos.forEach((v, k) => {
+      const antes = custo(v), ultima = v.viagens.length;
+      for (let j = 0; j <= ultima; j++) {
+        if (j === ultima && (!o.permitirRecarga || demanda[i] > v.cap)) continue;        // viagem nova só com recarga
+        const atual = v.viagens[j] || [];
+        if (j < ultima && carga(atual) + demanda[i] > limite(v, j)) continue;
+        for (let p = 0; p <= atual.length; p++) {
+          const copia = v.viagens.map(x => x.slice()); if (j === ultima) copia.push([i]); else copia[j].splice(p, 0, i);
+          const delta = custo({ ...v, viagens: copia }) - antes;
+          if (!melhor || delta < melhor.delta - 1e-9) melhor = { k, copia, delta };
+        }
+      }
+    });
+    if (melhor) veiculos[melhor.k].viagens = melhor.copia; else fora.push(i);
+  }
+  // melhora a ordem do que ainda falta em cada veículo (sem trocar de veículo: os entregadores já estão na rua)
+  for (const v of veiculos) {
+    let melhorou = true, voltas = 0, atual = custo(v);
+    const tentar = copia => { const c = custo({ ...v, viagens: copia }); if (c < atual - 1e-6) { v.viagens = copia; atual = c; melhorou = true; return true; } return false; };
+    while (melhorou && voltas++ < 50) {
+      melhorou = false;
+      for (let j = 0; j < v.viagens.length; j++) {
+        for (let a = 0; a < v.viagens[j].length - 1; a++) for (let b = a + 1; b < v.viagens[j].length; b++) {
+          const x = v.viagens[j], copia = v.viagens.map(y => y.slice()); copia[j] = x.slice(0, a).concat(x.slice(a, b + 1).reverse(), x.slice(b + 1)); tentar(copia);
+        }
+        for (let a = 0; a < v.viagens[j].length; a++) for (let j2 = 0; j2 < v.viagens.length; j2++) {
+          const no = v.viagens[j][a]; if (no === undefined) break;
+          if (j2 !== j && carga(v.viagens[j2]) + demanda[no] > limite(v, j2)) continue;
+          for (let p = 0; p <= v.viagens[j2].length; p++) {
+            if (j2 === j && (p === a || p === a + 1)) continue;
+            const copia = v.viagens.map(y => y.slice()); copia[j].splice(a, 1); copia[j2].splice(j2 === j && p > a ? p - 1 : p, 0, no);
+            if (tentar(copia)) break;
+          }
+        }
+      }
+    }
+    v.viagens = v.viagens.filter((x, j) => x.length || j === 0);
+  }
+  return { veiculos, fora };
+}
+
+/* ================= Endereços =================
+   Busca no OpenStreetMap (Nominatim). Com bairro, a busca livre acha o trecho certo de ruas compridas.
+   Onde o mapa não tem o número da casa, o resultado é o meio do trecho da rua: fica marcado como aproximado. */
+const memoriaEnderecos = new Map();
+async function localizarUm(e, cidadePadrao, uf) {
+  const cidade = e.cidade || cidadePadrao, d = estado.deposito;
+  const chave = semAcento([e.rua, e.numero, e.bairro, cidade, uf].join("|"));
+  if (memoriaEnderecos.has(chave)) return memoriaEnderecos.get(chave);
+  const caixa = coordValida(d.lat, d.lon) ? `&viewbox=${(d.lon - 0.8).toFixed(3)},${(d.lat + 0.8).toFixed(3)},${(d.lon + 0.8).toFixed(3)},${(d.lat - 0.8).toFixed(3)}&bounded=1` : "";
+  const base = `${NOMINATIM}?format=jsonv2&limit=1&addressdetails=1&countrycodes=br${caixa}&`, c = encodeURIComponent;
+  const local = `&city=${c(cidade)}` + (uf ? `&state=${c(uf)}` : "") + "&country=Brasil";
+  const tentativas = [];
+  if (e.bairro) tentativas.push("q=" + c([e.rua, e.numero, e.bairro, cidade, uf, "Brasil"].filter(Boolean).join(", ")));
+  if (e.numero) tentativas.push("street=" + c(e.numero + " " + e.rua) + local);
+  tentativas.push("street=" + c(e.rua) + local);
+  let achado = null, respondeu = false;
+  for (let i = 0; i < tentativas.length && !achado; i++) {
+    if (i > 0) await new Promise(ok => setTimeout(ok, ESPERA_ENDERECO));
+    try {
+      const r = await buscar(base + tentativas[i], 12000); respondeu = true;
+      if (r.length) achado = { lat: Number(r[0].lat), lon: Number(r[0].lon), exato: !!(r[0].address && r[0].address.house_number) };
+    } catch (err) { if (!respondeu && i === 0) break; }           // sem conexão: não insiste nas outras formas
+  }
+  if (achado) memoriaEnderecos.set(chave, achado);
+  return achado || { semResposta: !respondeu };
+}
+async function localizarEnderecos(aoAvancar) {
+  const faltam = estado.entregas.filter(e => !coordValida(e.lat, e.lon) && e.rua && e.origem !== "falhou");   // "não encontrado" só tenta de novo se o endereço mudar
+  const cidadePadrao = $("p-cidade").value.trim(), uf = $("p-uf").value.trim();
+  let achados = 0, aproximados = 0, semServico = 0;
+  for (let i = 0; i < faltam.length; i++) {
+    const e = faltam[i];
+    aoAvancar(i + 1, faltam.length, e);
+    const r = await localizarUm(e, cidadePadrao, uf);
+    if (r.lat !== undefined) { e.lat = r.lat; e.lon = r.lon; e.origem = r.exato ? "endereco" : "rua"; achados++; if (!r.exato) aproximados++; }
+    else if (r.semResposta) { semServico++; e.origem = ""; if (semServico >= 2) break; }     // serviço fora do ar: para de tentar
+    else e.origem = "falhou";
+    if (i < faltam.length - 1) await new Promise(ok => setTimeout(ok, ESPERA_ENDERECO));   // limite de uso do serviço gratuito
+  }
+  return { total: faltam.length, achados, aproximados, semServico };
+}
+
+/* ================= Cálculo das rotas ================= */
+function parametros() {
+  const [h, m] = ($("p-saida").value || "08:00").split(":").map(Number);
+  return { saida: h * 60 + m, parada: Math.max(0, paraNumero($("p-parada").value) || 0), recarga: Math.max(0, paraNumero($("p-recarga").value) || 0), tolerancia: Math.max(0, paraNumero($("p-tolerancia").value) || 0),
+           retorno: $("p-retorno").checked, cheio: $("p-cheio").checked, permitirRecarga: $("p-viagens").checked,
+           modo: $("p-objetivo").value === "tempo" ? "tempo" : "regiao", usarRuas: $("p-ruas").checked };
+}
+function aviso(texto, tipo = "") { const a = $("aviso"); a.textContent = texto; a.className = "aviso " + tipo; a.hidden = !texto; }
+
+/* Monta horários, quilômetros e carga de um veículo a partir das suas viagens (listas de índices da matriz). */
+function permutacoes(lista) {
+  if (lista.length <= 1) return [lista];
+  return lista.flatMap((x, i) => permutacoes(lista.slice(0, i).concat(lista.slice(i + 1))).map(resto => [x].concat(resto)));
+}
+/* Monta horários, quilômetros e carga de um veículo a partir das suas viagens (listas de índices da matriz).
+   Com hora marcada: quem chega cedo espera; quem chega tarde fica marcado com o atraso. */
+function simularVeiculo(veiculo, cor, viagensIdx, validas, demanda, Mx, P) {
+  let t = P.saida, ordem = 0, atrasoTotal = 0, esperaTotal = 0;
+  const viagens = viagensIdx.map((rota, j) => {
+    if (j > 0) t += P.recarga;
+    const inicio = t, pedidos = rota.reduce((s, i) => s + demanda[i], 0), carregado = P.cheio ? veiculo.cap : pedidos, volta = j < viagensIdx.length - 1 || P.retorno;
+    let km = 0, ant = 0, aBordo = carregado;
+    const paradas = rota.map(i => {
+      const trechoKm = Mx.km[ant][i]; t += Mx.min[ant][i]; km += trechoKm;
+      const janela = P.janelas && P.janelas[i], chegouAs = t; let espera = 0, atraso = 0;
+      if (janela) { if (t < janela[0]) { espera = janela[0] - t; t = janela[0]; } else if (t > janela[1]) atraso = t - janela[1]; }
+      const chegada = t; t += P.parada; aBordo -= demanda[i]; ant = i; atrasoTotal += atraso; esperaTotal += espera;
+      return { ordem: ++ordem, entrega: validas[i - 1], chegada, chegouAs, espera, atraso, marcada: !!janela, trechoKm, restam: aBordo, feito: false, nova: false };
+    });
+    let voltaKm = 0;
+    if (volta) { voltaKm = Mx.km[ant][0]; t += Mx.min[ant][0]; km += voltaKm; }
+    return { numero: j + 1, paradas, km, carregado, pedidos, folga: carregado - pedidos, inicio, fim: t, volta, voltaKm, geometria: null };
+  });
+  const nParadas = viagens.reduce((s, v) => s + v.paradas.length, 0), total = t - P.saida, parado = P.parada * nParadas + P.recarga * Math.max(0, viagens.length - 1) + esperaTotal;
+  return { veiculo, cor, viagens, km: viagens.reduce((s, v) => s + v.km, 0), paradas: nParadas, botijoes: viagens.reduce((s, v) => s + v.pedidos, 0), fim: t, total, dirigindo: total - parado, parado,
+           atrasoTotal, esperaTotal };
+}
+/* Com mais de uma viagem e hora marcada, testa a ordem das viagens e fica com a de menor atraso. */
+function montarVeiculo(veiculo, cor, viagensIdx, validas, demanda, Mx, P) {
+  if (!P.janelas || viagensIdx.length < 2 || viagensIdx.length > 5) return simularVeiculo(veiculo, cor, viagensIdx, validas, demanda, Mx, P);
+  let melhor = null;
+  for (const ordem of permutacoes(viagensIdx)) {
+    const r = simularVeiculo(veiculo, cor, ordem, validas, demanda, Mx, P);
+    if (!melhor || r.atrasoTotal < melhor.atrasoTotal - 1e-6 || (Math.abs(r.atrasoTotal - melhor.atrasoTotal) <= 1e-6 && r.fim < melhor.fim - 1e-6)) melhor = r;
+  }
+  return melhor;
+}
+
+async function criarRotas() {
+  const botao = $("btn-rotas");
+  botao.disabled = true; estado.resultado = null;
+  try {
+    lerFormularios();
+    const P = parametros(), d = estado.deposito;
+    if (!coordValida(d.lat, d.lon)) throw new Error("Informe a latitude e a longitude do depósito, ou clique em “Marcar depósito no mapa”.");
+    const veiculos = estado.veiculos.filter(v => v.ativo && v.cap > 0);
+    if (!veiculos.length) throw new Error("Cadastre ao menos um veículo com capacidade maior que zero.");
+    if (!estado.entregas.length) throw new Error("Cadastre ou carregue ao menos uma entrega.");
+
+    let aproximados = 0, semServico = 0;
+    if (estado.entregas.some(e => !coordValida(e.lat, e.lon) && e.rua && e.origem !== "falhou")) {
+      const r = await localizarEnderecos((i, total, e) => aviso(`Localizando endereços: ${i} de ${total} (${e.cliente})…`, "andando"));
+      desenharEntregas(); semServico = r.semServico;
+    }
+    aproximados = estado.entregas.filter(e => e.origem === "rua").length;
+    const validas = estado.entregas.filter(e => coordValida(e.lat, e.lon));
+    if (!validas.length) throw new Error("Nenhuma entrega foi localizada. Confira rua e cidade, ou informe a coordenada.");
+    const semLocal = estado.entregas.filter(e => !coordValida(e.lat, e.lon));
+
+    aviso("Calculando distâncias…", "andando");
+    const pontos = [d].concat(validas), Mx = await matriz(pontos, P.usarRuas);
+    aviso("Otimizando as rotas…", "andando");
+    await new Promise(ok => setTimeout(ok, 30));
+    const demanda = [0].concat(validas.map(e => e.qtd)), caps = veiculos.map(v => v.cap);
+    const marcadas = validas.filter(e => lerHora(e.hora));
+    if (marcadas.length) P.janelas = [null].concat(validas.map(e => { const h = lerHora(e.hora); return h ? [minutosDe(h) - P.tolerancia, minutosDe(h) + P.tolerancia] : null; }));
+    const sol = planejarViagens(Mx.min, Mx.km, demanda, caps, P, P.permitirRecarga);
+
+    const rotas = veiculos.map((v, k) => montarVeiculo(v, CORES[estado.veiculos.indexOf(v) % CORES.length], sol.rotas.filter((r, i) => sol.dono[i] === k && r.length), validas, demanda, Mx, P));
+    const base = ordemDaLista(demanda, caps, P.permitirRecarga), atendidasBase = base.rotas.reduce((s, r) => s + r.length, 0);
+    estado.resultado = { rotas, fora: sol.fora.map(i => validas[i - 1]), semLocal, fonte: Mx.fonte, P, km: rotas.reduce((s, r) => s + r.km, 0),
+                         kmBase: kmDasViagens(base.rotas, base.dono, caps.length, Mx.km, P.retorno), baseCompleta: atendidasBase === validas.length && !sol.fora.length };
+    desenharResultado(); desenharMapa();
+
+    await desenharTrajetos(Mx.fonte);
+    const atrasadas = rotas.flatMap(r => r.viagens.flatMap(vg => vg.paradas.filter(p => p.atraso > 0.5)));
+    estado.resultado.marcadas = marcadas.length; estado.resultado.atrasadas = atrasadas.length; desenharResultado();
+    const partes = [], extras = rotas.reduce((s, r) => s + Math.max(0, r.viagens.length - 1), 0);
+    if (atrasadas.length) partes.push(`${atrasadas.length} de ${marcadas.length} entrega(s) com hora marcada não serão atendidas no horário: ${atrasadas.map(p => `${p.entrega.cliente} (${duracao(p.atraso)} de atraso)`).join(", ")}.`);
+    if (extras) partes.push(`A carga passou da capacidade: ${extras} viagem(ns) com recarga no depósito.`);
+    if (aproximados) partes.push(`${aproximados} endereço(s) com número aproximado: o mapa só tem a rua. Arraste o marcador para corrigir.`);
+    if (Mx.fonte !== "ruas") partes.push(Mx.fonte === "reta-limite" ? `Mais de ${LIMITE_OSRM - 1} entregas: distâncias em linha reta com fator de correção.` : P.usarRuas ? "O serviço de rotas não respondeu: distâncias em linha reta com fator de correção." : "Distâncias em linha reta com fator de correção.");
+    if (sol.fora.length) partes.push(`${sol.fora.length} entrega(s) não couberam nos veículos.`);
+    if (semLocal.length) partes.push(`${semLocal.length} entrega(s) sem localização ficaram de fora` + (semServico ? ": a busca de endereços não respondeu (sem internet?)." : "."));
+    aviso(partes.join(" "), atrasadas.length ? "erro" : partes.length ? "alerta" : "");
+    $("resultado").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) { aviso(e.message, "erro"); }
+  finally { botao.disabled = false; }
+}
+
+/* Monta a rota de um veículo em andamento: viagens já feitas, paradas já entregues e o que ainda falta. */
+function montarEmAndamento(anterior, v, fechadas, feitasNaAtual, validas, demanda, Mx, P, idsNovos) {
+  let t = v.inicioHora, pos = v.naRua ? v.inicioNo : 0, atrasoTotal = 0, esperaTotal = 0;
+  const viagens = fechadas.slice(), pendentes = v.viagens.map((x, j) => ({ x, j })).filter(({ x, j }) => x.length || (j === 0 && feitasNaAtual.length));
+  pendentes.forEach(({ x, j }, k) => {
+    const emCurso = j === 0 && v.naRua, original = emCurso ? anterior.viagens[fechadas.length] : null;
+    if (k > 0) t += P.recarga;
+    const pedidos = x.reduce((s, i) => s + demanda[i], 0) + (emCurso ? feitasNaAtual.reduce((s, p) => s + p.entrega.qtd, 0) : 0);
+    const carregado = emCurso ? original.carregado : P.cheio ? anterior.veiculo.cap : pedidos, inicio = emCurso ? original.inicio : t;
+    let km = emCurso ? feitasNaAtual.reduce((s, p) => s + p.trechoKm, 0) : 0, aBordo = emCurso ? v.limite0 : carregado;
+    const paradas = (emCurso ? feitasNaAtual.slice() : []).concat(x.map(i => {
+      const trechoKm = Mx.km[pos][i]; t += Mx.min[pos][i]; km += trechoKm;
+      const janela = P.janelas && P.janelas[i], chegouAs = t; let espera = 0, atraso = 0;
+      if (janela) { if (t < janela[0]) { espera = janela[0] - t; t = janela[0]; } else if (t > janela[1]) atraso = t - janela[1]; }
+      const chegada = t; t += P.parada; aBordo -= demanda[i]; pos = i; atrasoTotal += atraso; esperaTotal += espera;
+      return { entrega: validas[i - 1], chegada, chegouAs, espera, atraso, marcada: !!janela, trechoKm, restam: aBordo, feito: false, nova: idsNovos.has(validas[i - 1].id) };
+    }));
+    const volta = k < pendentes.length - 1 || P.retorno; let voltaKm = 0;
+    if (volta && pos !== 0) { voltaKm = Mx.km[pos][0]; t += Mx.min[pos][0]; km += voltaKm; pos = 0; }
+    viagens.push({ paradas, km, carregado, pedidos, folga: carregado - pedidos, inicio, fim: t, volta, voltaKm, geometria: null });
+  });
+  let ordem = 0; viagens.forEach((vg, j) => { vg.numero = j + 1; vg.paradas.forEach(p => { p.ordem = ++ordem; }); });
+  const fim = viagens.length ? viagens[viagens.length - 1].fim : P.saida, total = fim - P.saida;
+  return { veiculo: anterior.veiculo, cor: anterior.cor, viagens, km: viagens.reduce((s, vg) => s + vg.km, 0), paradas: ordem, botijoes: viagens.reduce((s, vg) => s + vg.pedidos, 0),
+           fim, total, dirigindo: null, parado: null, atrasoTotal, esperaTotal };
+}
+
+/* Recalcula as rotas com os veículos na rua: mantém o que foi entregue e encaixa os pedidos novos. */
+async function atualizarRotas() {
+  const R0 = estado.resultado, botao = $("btn-atualizar");
+  if (!R0) return;
+  botao.disabled = true;
+  try {
+    lerFormularios();
+    const P = { ...parametros(), saida: R0.P.saida, cheio: R0.P.cheio }, d = estado.deposito;
+    if (estado.entregas.some(e => !coordValida(e.lat, e.lon) && e.rua && e.origem !== "falhou")) {
+      await localizarEnderecos((i, total, e) => aviso(`Localizando endereços: ${i} de ${total} (${e.cliente})…`, "andando")); desenharEntregas();
+    }
+    const validas = estado.entregas.filter(e => coordValida(e.lat, e.lon)), semLocal = estado.entregas.filter(e => !coordValida(e.lat, e.lon));
+    const noDe = new Map(validas.map((e, i) => [e.id, i + 1]));
+    // entregas já feitas que saíram da lista continuam valendo como ponto de partida do veículo
+    R0.rotas.forEach(r => r.viagens.forEach(vg => vg.paradas.forEach(p => { if (p.feito && !noDe.has(p.entrega.id)) { validas.push(p.entrega); noDe.set(p.entrega.id, validas.length); } })));
+    aviso("Calculando distâncias…", "andando");
+    const Mx = await matriz([d].concat(validas), P.usarRuas), demanda = [0].concat(validas.map(e => e.qtd));
+    if (validas.some(e => lerHora(e.hora))) P.janelas = [null].concat(validas.map(e => { const h = lerHora(e.hora); return h ? [minutosDe(h) - P.tolerancia, minutosDe(h) + P.tolerancia] : null; }));
+
+    const feitos = R0.rotas.flatMap(r => r.viagens.flatMap(vg => vg.paradas.filter(p => p.feito)));
+    const agora = Math.max(P.saida, ...feitos.map(p => p.chegada + P.parada));
+    const jaNaRota = new Set(), partes = [];
+    const veiculos = R0.rotas.map(r => {
+      const existe = p => noDe.has(p.entrega.id) && estado.entregas.includes(p.entrega);
+      let atual = r.viagens.findIndex(vg => vg.paradas.some(p => !p.feito && existe(p)));
+      if (atual < 0) atual = r.viagens.length;
+      const fechadas = r.viagens.slice(0, atual).map(vg => ({ ...vg, paradas: vg.paradas.filter(p => p.feito) })).filter(vg => vg.paradas.length);
+      const vg = r.viagens[atual], feitas = vg ? vg.paradas.filter(p => p.feito) : [], pend = vg ? vg.paradas.filter(p => !p.feito && existe(p)).map(p => noDe.get(p.entrega.id)) : [];
+      const depois = r.viagens.slice(atual + 1).map(x => x.paradas.filter(p => !p.feito && existe(p)).map(p => noDe.get(p.entrega.id))).filter(x => x.length);
+      const ultima = feitas[feitas.length - 1], anteriorFim = fechadas.length ? fechadas[fechadas.length - 1].fim : null;
+      const v = ultima ? { naRua: true, inicioNo: noDe.get(ultima.entrega.id), inicioHora: ultima.chegada + P.parada, limite0: ultima.restam }
+                       : { naRua: false, inicioNo: 0, inicioHora: anteriorFim !== null ? anteriorFim + P.recarga : r.viagens.length ? vg ? vg.inicio : agora : agora, limite0: r.veiculo.cap };
+      [pend].concat(depois).forEach(x => x.forEach(i => jaNaRota.add(i)));
+      feitos.forEach(p => jaNaRota.add(noDe.get(p.entrega.id)));
+      return { anterior: r, fechadas, feitas, estado: { cap: r.veiculo.cap, ...v, viagens: [pend].concat(depois) } };
+    });
+    const novas = validas.map((e, i) => i + 1).filter(i => !jaNaRota.has(i)), idsNovos = new Set(novas.map(i => validas[i - 1].id));
+    aviso("Encaixando os pedidos novos…", "andando"); await new Promise(ok => setTimeout(ok, 30));
+    const sol = replanejarNucleo(Mx.min, Mx.km, demanda, veiculos.map(x => x.estado), novas, P);
+    const rotas = veiculos.map(x => montarEmAndamento(x.anterior, x.estado, x.fechadas, x.feitas, validas, demanda, Mx, P, idsNovos));
+    const marcadas = validas.filter(e => lerHora(e.hora)).length, atrasadas = rotas.flatMap(r => r.viagens.flatMap(vg => vg.paradas.filter(p => !p.feito && p.atraso > 0.5)));
+    estado.resultado = { rotas, fora: sol.fora.map(i => validas[i - 1]), semLocal, fonte: Mx.fonte, P, km: rotas.reduce((s, r) => s + r.km, 0), kmBase: 0, baseCompleta: false,
+                         marcadas, atrasadas: atrasadas.length, atualizada: { novos: novas.length - sol.fora.length, hora: agora, vez: (R0.atualizada ? R0.atualizada.vez : 0) + 1 } };
+    desenharResultado(); desenharMapa();
+    await desenharTrajetos(Mx.fonte);
+    const comNova = rotas.filter(r => r.viagens.some(vg => vg.paradas.some(p => p.nova)));
+    partes.push(novas.length ? `${novas.length - sol.fora.length} pedido(s) novo(s) encaixado(s) em ${comNova.map(r => r.veiculo.nome).join(", ") || "nenhum veículo"}. Envie a rota atualizada a cada entregador.` : "Nenhum pedido novo: as rotas foram só recalculadas a partir do que já foi entregue.");
+    if (atrasadas.length) partes.push(`${atrasadas.length} entrega(s) com hora marcada ficarão atrasadas: ${atrasadas.map(p => `${p.entrega.cliente} (${duracao(p.atraso)})`).join(", ")}.`);
+    if (sol.fora.length) partes.push(`${sol.fora.length} pedido(s) não couberam em nenhum veículo.`);
+    if (semLocal.length) partes.push(`${semLocal.length} entrega(s) sem localização ficaram de fora.`);
+    aviso(partes.join(" "), atrasadas.length || sol.fora.length ? "erro" : "ok");
+    $("resultado").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) { aviso(e.message, "erro"); }
+  finally { botao.disabled = false; }
+}
+/* Busca o trajeto pelas ruas de cada viagem, só para o desenho no mapa. */
+async function desenharTrajetos(fonte) {
+  if (fonte !== "ruas" || !estado.resultado) return;
+  const d = estado.deposito, todas = estado.resultado.rotas.flatMap(r => r.viagens);
+  await Promise.all(todas.map(async vg => {
+    const pts = [d].concat(vg.paradas.map(p => p.entrega), vg.volta ? [d] : []);
+    try {
+      const g = await buscar(`${OSRM}/route/v1/driving/${pts.map(p => p.lon.toFixed(6) + "," + p.lat.toFixed(6)).join(";")}?overview=full&geometries=geojson`);
+      if (g.code === "Ok") vg.geometria = g.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+    } catch (e) { /* mantém a linha reta */ }
+  }));
+  desenharMapa();
+}
+
+/* ================= Saída: impressão e imagem por veículo ================= */
+function imprimir(indice) {
+  const cartoes = document.querySelectorAll("#r-rotas .rota");
+  cartoes.forEach((c, i) => c.classList.toggle("fora-da-impressao", indice !== null && i !== indice));
+  document.body.classList.add("imprimindo-rotas");
+  const limpar = () => { document.body.classList.remove("imprimindo-rotas"); cartoes.forEach(c => c.classList.remove("fora-da-impressao")); window.removeEventListener("afterprint", limpar); };
+  window.addEventListener("afterprint", limpar);
+  window.print();
+}
+/* Desenha a rota de um veículo em uma imagem (PNG), para mandar ao entregador. Sem bibliotecas: canvas do navegador. */
+function imagemDaRota(r, R) {
+  const L = 1080, M = 44, FONTE = "Calibri, 'Segoe UI', Arial, sans-serif", c = document.createElement("canvas"), x = c.getContext("2d");
+  const quebrar = (texto, largura, fonte, maxLinhas) => {
+    x.font = fonte; const palavras = String(texto).split(/\s+/), linhas = []; let atual = "";
+    for (const p of palavras) { const t = atual ? atual + " " + p : p; if (x.measureText(t).width <= largura || !atual) atual = t; else { linhas.push(atual); atual = p; } }
+    if (atual) linhas.push(atual);
+    if (linhas.length > maxLinhas) { linhas.length = maxLinhas; let u = linhas[maxLinhas - 1]; while (u.length > 3 && x.measureText(u + "…").width > largura) u = u.slice(0, -1); linhas[maxLinhas - 1] = u + "…"; }
+    return linhas;
+  };
+  // mede antes de desenhar
+  const itens = [];
+  r.viagens.forEach(vg => {
+    if (r.viagens.length > 1) itens.push({ tipo: "viagem", vg, h: 64 });
+    vg.paradas.forEach(p => { const end = quebrar(enderecoTexto(p.entrega) + (p.entrega.origem === "rua" ? " (nº aproximado)" : ""), L - 2 * M - 300, `26px ${FONTE}`, 2); itens.push({ tipo: "parada", p, end, h: Math.max(62 + end.length * 32 + (p.marcada ? 34 : 0), p.feito ? 0 : 128) }); });
+    if (vg.volta) itens.push({ tipo: "volta", vg, h: 60 });
+  });
+  const pendentes = r.viagens.reduce((s, vg) => s + vg.paradas.filter(p => !p.feito).length, 0), topo = 214, rodape = 70;
+  c.width = L; c.height = topo + itens.reduce((s, i) => s + i.h, 0) + rodape;
+  x.fillStyle = "#FFFFFF"; x.fillRect(0, 0, c.width, c.height);
+  x.fillStyle = "#1B365D"; x.fillRect(0, 0, L, 150); x.fillStyle = "#FFD100"; x.fillRect(0, 150, L, 8);
+  x.textBaseline = "alphabetic"; x.fillStyle = "#FFFFFF"; x.font = `700 54px ${FONTE}`; x.fillText(quebrar("Rota · " + r.veiculo.nome, L - 2 * M, `700 54px ${FONTE}`, 1)[0], M, 72);
+  x.font = `28px ${FONTE}`; x.fillStyle = "#D1D7DF";
+  x.fillText(R.atualizada ? `Atualizada: pedidos novos incluídos (versão ${R.atualizada.vez + 1})` : `Saída às ${hhmm(R.P.saida)} de ${estado.deposito.nome}`, M, 118);
+  x.fillStyle = "#1F2A37"; x.font = `700 30px ${FONTE}`;
+  x.fillText(`${pendentes} parada(s) a fazer · ${num(r.km, 1)} km · previsão de término ${hhmm(r.fim)}`, M, 198);
+  let y = topo;
+  for (const it of itens) {
+    if (it.tipo === "viagem") {
+      x.fillStyle = "#D1D7DF"; x.fillRect(M, y + 10, L - 2 * M, 44); x.fillStyle = "#142946"; x.font = `700 26px ${FONTE}`;
+      x.fillText(`Viagem ${it.vg.numero} · sai às ${hhmm(it.vg.inicio)} com ${num(it.vg.carregado)} botijões cheios`, M + 14, y + 41);
+    } else if (it.tipo === "volta") {
+      x.fillStyle = "#6B7280"; x.font = `italic 26px ${FONTE}`;
+      x.fillText((it.vg.numero < r.viagens.length ? "Volta ao depósito para recarga" : "Volta ao depósito") + ` · ${hhmm(it.vg.fim)}`, M + 78, y + 38);
+    } else {
+      const p = it.p, feito = p.feito;
+      if (p.nova && !feito) { x.fillStyle = "#FFF6CC"; x.fillRect(M - 12, y + 4, L - 2 * M + 24, it.h - 8); }
+      x.beginPath(); x.arc(M + 30, y + 46, 30, 0, Math.PI * 2); x.fillStyle = feito ? "#C5CAD3" : r.cor; x.fill();
+      x.fillStyle = "#FFFFFF"; x.font = `700 30px ${FONTE}`; x.textAlign = "center"; x.fillText(feito ? "✓" : String(p.ordem), M + 30, y + 57); x.textAlign = "left";
+      x.fillStyle = feito ? "#97999B" : "#1F2A37"; x.font = `700 32px ${FONTE}`;
+      const nome = quebrar(p.entrega.cliente, L - 2 * M - 300 - (p.nova && !feito ? 110 : 0), `700 32px ${FONTE}`, 1)[0]; x.fillText(nome, M + 78, y + 42);
+      if (p.nova && !feito) { const w = x.measureText(nome).width; x.fillStyle = "#BF9D00"; x.fillRect(M + 78 + w + 14, y + 14, 92, 36); x.fillStyle = "#FFFFFF"; x.font = `700 24px ${FONTE}`; x.fillText("NOVA", M + 78 + w + 26, y + 41); }
+      x.fillStyle = feito ? "#97999B" : "#4B5563"; x.font = `26px ${FONTE}`; it.end.forEach((linha, k) => x.fillText(linha, M + 78, y + 78 + k * 32));
+      if (p.marcada) { x.fillStyle = feito ? "#97999B" : p.atraso > 0.5 ? "#B42318" : "#17603A"; x.font = `700 24px ${FONTE}`;
+        x.fillText(`Hora marcada: ${p.entrega.hora}` + (feito ? "" : p.atraso > 0.5 ? ` · atraso previsto de ${duracao(p.atraso)}` : ""), M + 78, y + 78 + it.end.length * 32); }
+      x.textAlign = "right"; x.fillStyle = feito ? "#97999B" : "#1F2A37"; x.font = `700 34px ${FONTE}`; x.fillText(feito ? "entregue" : hhmm(p.chegada), L - M, y + 42);
+      x.font = `26px ${FONTE}`; x.fillStyle = feito ? "#97999B" : "#4B5563"; x.fillText(`${num(p.entrega.qtd)} botij${p.entrega.qtd === 1 ? "ão" : "ões"}`, L - M, y + 78);
+      if (!feito) x.fillText(p.restam === 1 ? "fica 1 cheio" : `ficam ${num(p.restam)} cheios`, L - M, y + 110);
+      x.textAlign = "left"; x.fillStyle = "#E3E6EB"; x.fillRect(M, y + it.h - 1, L - 2 * M, 2);
+    }
+    y += it.h;
+  }
+  const hoje = new Date();
+  x.fillStyle = "#6B7280"; x.font = `22px ${FONTE}`;
+  x.fillText(`Gerada em ${hoje.toLocaleDateString("pt-BR")} às ${hoje.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · horários previstos, sem trânsito`, M, c.height - 28);
+  return c;
+}
+const nomeDeArquivo = t => semAcento(t).replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "veiculo";
+async function exportarImagem(indice, acao) {
+  const R = estado.resultado, r = R && R.rotas[indice]; if (!r) return;
+  const canvas = imagemDaRota(r, R), nome = `rota_${nomeDeArquivo(r.veiculo.nome)}${R.atualizada ? "_v" + (R.atualizada.vez + 1) : ""}.png`;
+  const blob = await new Promise(ok => canvas.toBlob(ok, "image/png"));
+  try {
+    if (acao === "copiar") { await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]); aviso(`Imagem da rota de ${r.veiculo.nome} copiada. Cole na conversa do WhatsApp (Ctrl+V).`, "ok"); return; }
+    if (acao === "enviar") {
+      const arquivo = new File([blob], nome, { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [arquivo] })) { await navigator.share({ files: [arquivo], title: "Rota " + r.veiculo.nome }); return; }
+      aviso("Este navegador não tem o botão de compartilhar. A imagem foi baixada: anexe no WhatsApp.", "alerta");
+    }
+  } catch (e) { if (e && e.name === "AbortError") return; aviso("Não foi possível " + (acao === "copiar" ? "copiar" : "compartilhar") + " direto. A imagem foi baixada: anexe no WhatsApp.", "alerta"); }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ================= Telas: cadastro ================= */
+function lerFormularios() {
+  const d = estado.deposito;
+  d.nome = $("d-nome").value.trim() || "Depósito"; d.lat = paraNumero($("d-lat").value); d.lon = paraNumero($("d-lon").value);
+  document.querySelectorAll("#t-veiculos tbody tr").forEach(tr => {
+    const v = estado.veiculos.find(x => x.id === +tr.dataset.id); if (!v) return;
+    v.nome = tr.querySelector('[data-c="nome"]').value.trim() || "Veículo"; v.cap = Math.max(0, Math.round(paraNumero(tr.querySelector('[data-c="cap"]').value) || 0)); v.ativo = tr.querySelector('[data-c="ativo"]').checked;
+  });
+  document.querySelectorAll("#t-entregas tbody tr").forEach(tr => {
+    const e = estado.entregas.find(x => x.id === +tr.dataset.id); if (!e) return;
+    const campo = c => tr.querySelector(`[data-c="${c}"]`).value.trim();
+    const novo = { rua: campo("rua"), numero: campo("numero"), bairro: campo("bairro"), cidade: campo("cidade") };
+    const mudouEndereco = ["rua", "numero", "bairro", "cidade"].some(k => novo[k] !== e[k]);
+    const texto = campo("coord"), c = lerCoordenada(texto);
+    e.cliente = campo("cliente") || "Entrega"; Object.assign(e, novo);
+    e.qtd = Math.max(1, Math.round(paraNumero(campo("qtd")) || 1)); e.hora = lerHora(campo("hora"));
+    if (c && (Math.abs(c.lat - e.lat) > 1e-6 || Math.abs(c.lon - e.lon) > 1e-6 || !["coord", "mapa"].includes(e.origem))) { e.lat = c.lat; e.lon = c.lon; e.origem = "coord"; }
+    else if (!texto && ["coord", "mapa"].includes(e.origem)) { e.lat = NaN; e.lon = NaN; e.origem = ""; }                       // coordenada apagada
+    else if (mudouEndereco && !["coord", "mapa"].includes(e.origem)) { e.lat = NaN; e.lon = NaN; e.origem = ""; }               // endereço novo: localizar de novo
+  });
+}
+function desenharDeposito() {
+  const d = estado.deposito;
+  $("d-nome").value = d.nome; $("d-lat").value = coordValida(d.lat, d.lon) ? d.lat.toFixed(5) : ""; $("d-lon").value = coordValida(d.lat, d.lon) ? d.lon.toFixed(5) : "";
+}
+function desenharVeiculos() {
+  const corpo = $("t-veiculos").querySelector("tbody");
+  corpo.innerHTML = estado.veiculos.map((v, i) => `<tr data-id="${v.id}">
+    <td><span class="bolinha" style="background:${CORES[i % CORES.length]}"></span></td>
+    <td><input data-c="nome" value="${esc(v.nome)}" aria-label="Nome do veículo"></td>
+    <td><input data-c="cap" type="number" min="0" step="1" value="${v.cap}" aria-label="Capacidade em botijões" class="curto"></td>
+    <td class="centro"><input data-c="ativo" type="checkbox" ${v.ativo ? "checked" : ""} aria-label="Sai para entrega"></td>
+    <td><button type="button" class="x" data-rem-veiculo="${v.id}" aria-label="Remover veículo">×</button></td></tr>`).join("");
+  desenharResumo();
+}
+function desenharResumo() {
+  const cap = estado.veiculos.filter(v => v.ativo).reduce((s, v) => s + v.cap, 0), pedido = estado.entregas.reduce((s, e) => s + e.qtd, 0);
+  $("resumo-carga").textContent = `Capacidade dos veículos que saem: ${num(cap)} botijões. Pedidos: ${num(pedido)} botijões em ${num(estado.entregas.length)} entregas.` +
+    (pedido > cap ? ` Faltam ${num(pedido - cap)} botijões de capacidade: ${$("p-viagens").checked ? "haverá volta ao depósito para recarga." : "parte das entregas ficará de fora."}` : "");
+  $("resumo-carga").className = "nota" + (pedido > cap ? " falta" : "");
+}
+const ROTULO_ORIGEM = { coord: ["coordenada informada", "ok"], mapa: ["ajustado no mapa", "ok"], endereco: ["endereço localizado", "ok"], rua: ["rua localizada, nº aproximado", "meio"],
+                        falhou: ["não encontrado", "ruim"], vazio: ["falta a rua", "ruim"], "": ["a localizar", "neutro"] };
+function desenharEntregas() {
+  const corpo = $("t-entregas").querySelector("tbody"), cidadePadrao = $("p-cidade").value.trim();
+  corpo.innerHTML = estado.entregas.map((e, i) => {
+    const tem = coordValida(e.lat, e.lon), manual = tem && ["coord", "mapa"].includes(e.origem);
+    const [rot, classe] = rotuloDe(e);
+    return `<tr data-id="${e.id}"><td class="n">${i + 1}</td>
+    <td><input data-c="cliente" value="${esc(e.cliente)}" aria-label="Cliente" class="medio"></td>
+    <td><input data-c="rua" value="${esc(e.rua)}" aria-label="Rua" class="largo" placeholder="Rua ou avenida"></td>
+    <td><input data-c="numero" value="${esc(e.numero)}" aria-label="Número" class="mini" inputmode="numeric"></td>
+    <td><input data-c="bairro" value="${esc(e.bairro)}" aria-label="Bairro (opcional)" class="medio" placeholder="opcional"></td>
+    <td><input data-c="cidade" value="${esc(e.cidade)}" aria-label="Cidade" class="medio" placeholder="${esc(cidadePadrao)}"></td>
+    <td><input data-c="qtd" type="number" min="1" step="1" value="${e.qtd}" aria-label="Botijões" class="mini"></td>
+    <td><input data-c="hora" type="time" value="${esc(e.hora || "")}" aria-label="Hora marcada (opcional)" class="hora"></td>
+    <td><input data-c="coord" value="${manual ? e.lat.toFixed(5) + ", " + e.lon.toFixed(5) : ""}" aria-label="Coordenada (opcional)" class="coord" placeholder="opcional"></td>
+    <td><span class="etiqueta ${classe}">${rot}</span></td>
+    <td><button type="button" class="x" data-rem-entrega="${e.id}" aria-label="Remover entrega">×</button></td></tr>`;
+  }).join("") || `<tr><td colspan="11" class="vazio">Nenhuma entrega. Carregue um arquivo, use o exemplo ou adicione linhas.</td></tr>`;
+}
+function rotuloDe(e) {
+  const tem = coordValida(e.lat, e.lon);
+  return ROTULO_ORIGEM[tem ? (e.origem || "coord") : e.origem === "falhou" ? "falhou" : e.rua ? "" : "vazio"];
+}
+/* Atualiza só as etiquetas, sem redesenhar a tabela (para não tirar o cursor de quem está digitando). */
+function atualizarEtiquetas() {
+  document.querySelectorAll("#t-entregas tbody tr").forEach(tr => {
+    const e = estado.entregas.find(x => x.id === +tr.dataset.id), et = tr.querySelector(".etiqueta"); if (!e || !et) return;
+    const [rot, classe] = rotuloDe(e); et.textContent = rot; et.className = "etiqueta " + classe;
+  });
+}
+function desenharTudo() { desenharDeposito(); desenharVeiculos(); desenharEntregas(); desenharResultado(); desenharMapa(true); }
+
+/* ================= Telas: resultado ================= */
+function desenharResultado() {
+  const R = estado.resultado, area = $("resultado");
+  $("btn-atualizar").hidden = !R;
+  if (!R) { area.hidden = true; return; }
+  area.hidden = false;
+  const usadas = R.rotas.filter(r => r.paradas), entregas = usadas.reduce((s, r) => s + r.paradas, 0), botijoes = usadas.reduce((s, r) => s + r.botijoes, 0);
+  const viagens = usadas.reduce((s, r) => s + r.viagens.length, 0), fim = Math.max(...usadas.map(r => r.fim), R.P.saida), ganho = R.kmBase > 0 ? (1 - R.km / R.kmBase) * 100 : 0;
+  const chegadas = usadas.flatMap(r => r.viagens.flatMap(vg => vg.paradas.map(p => p.chegada))), media = chegadas.length ? soma(chegadas) / chegadas.length : R.P.saida;
+  const cartoes = [
+    ["Distância total", num(R.km, 1) + " km", `${num(usadas.length)} veículo(s)` + (viagens > usadas.length ? `, ${num(viagens)} viagens (${num(viagens - usadas.length)} com recarga)` : " em rota")],
+    ["Entregas", num(entregas), `${num(botijoes)} botijões` + (R.marcadas ? ` · hora marcada: ${num(R.marcadas - (R.atrasadas || 0))} de ${num(R.marcadas)} no horário` : "")],
+    [R.P.retorno ? "Última volta ao depósito" : "Última entrega concluída", hhmm(fim), `saída às ${hhmm(R.P.saida)}; em média o cliente recebe às ${hhmm(media)}`],
+    R.atualizada ? ["Rotas atualizadas", num(R.atualizada.novos) + (R.atualizada.novos === 1 ? " pedido novo" : " pedidos novos"), `encaixados com os veículos na rua; versão ${R.atualizada.vez + 1}`] :
+    R.baseCompleta ? ["Ganho sobre a ordem da lista", (ganho >= 0 ? "−" : "+") + num(Math.abs(ganho), 0) + "%", `de ${num(R.kmBase, 1)} para ${num(R.km, 1)} km`]
+                   : ["Ordem da lista", "—", "sem comparação: nem tudo foi atendido"]];
+  $("r-cartoes").innerHTML = cartoes.map(([a, b, c]) => `<div class="cartao indicador"><div class="rotulo">${a}</div><div class="valor">${b}</div><div class="detalhe">${c}</div></div>`).join("");
+  $("r-fonte").textContent = R.fonte === "ruas" ? "Distâncias e tempos pelas ruas (OSRM, dados do OpenStreetMap), sem trânsito." : `Distâncias em linha reta × ${String(FATOR_RUA).replace(".", ",")} e velocidade média de ${KM_H_RESERVA} km/h.`;
+  const hojeTxt = new Date().toLocaleDateString("pt-BR");
+  $("r-rotas").innerHTML = R.rotas.map((r, k) => {
+    if (!r.paradas) return `<div class="cartao rota" style="border-left-color:${r.cor}"><h3><span class="bolinha" style="background:${r.cor}"></span>${esc(r.veiculo.nome)}</h3><p class="nota">Não foi necessário: fica no depósito.</p></div>`;
+    const blocos = r.viagens.map(vg => {
+      const linhas = vg.paradas.map(p => `<tr class="${p.feito ? "feito" : ""}${p.nova ? " nova" : ""}"><td class="chk"><input type="checkbox" data-feito="${p.entrega.id}" ${p.feito ? "checked" : ""} aria-label="Entregue: ${esc(p.entrega.cliente)}"></td>
+        <td class="n"><span class="num" style="background:${r.cor}">${p.ordem}</span></td>
+        <td class="cli">${esc(p.entrega.cliente)}${p.nova ? ' <span class="etiqueta meio">nova</span>' : ""}<small>${esc(enderecoTexto(p.entrega))}${p.entrega.origem === "rua" ? " (nº aproximado)" : ""}</small></td>
+        <td>${hhmm(p.chegada)}${p.marcada ? `<small class="${p.atraso > 0.5 ? "tarde" : "nahora"}">marcada ${esc(p.entrega.hora)}${p.atraso > 0.5 ? " · atraso de " + duracao(p.atraso) : p.espera > 0.5 ? " · espera " + duracao(p.espera) : " · no horário"}</small>` : ""}</td>
+        <td>${num(p.trechoKm, 1)}</td><td>${num(p.entrega.qtd)}</td><td><strong>${num(p.restam)}</strong></td></tr>`).join("");
+      return (r.viagens.length > 1 ? `<h4>Viagem ${vg.numero}${vg.numero > 1 ? ` · recarrega e sai às ${hhmm(vg.inicio)}` : ` · sai às ${hhmm(vg.inicio)}`}</h4>` : "") + `
+      <div class="carga" title="Carga do veículo">
+        <div class="barra"><i style="width:${Math.min(100, vg.carregado / r.veiculo.cap * 100)}%;background:${r.cor}"></i></div>
+        <span>Sai com <b>${num(vg.carregado)}</b> botijões cheios (capacidade ${num(r.veiculo.cap)}): <b>${num(vg.pedidos)}</b> de pedidos${vg.folga > 0 ? ` e <b>${num(vg.folga)}</b> de reserva para pedidos novos` : R.P.cheio ? ", sem reserva" : ""}</span>
+      </div>
+      <div class="tabela-rolagem"><table><thead><tr><th title="Marque o que já foi entregue">Feito</th><th>#</th><th>Cliente</th><th>Chegada</th><th>Km</th><th>Entrega</th><th>Cheios a bordo</th></tr></thead>
+      <tbody>${linhas}${vg.volta ? `<tr class="volta"><td></td><td></td><td class="cli">${vg.numero < r.viagens.length ? "Volta ao depósito para recarga" : "Volta ao depósito"}</td><td>${hhmm(vg.fim)}</td><td>${num(vg.voltaKm, 1)}</td><td></td><td></td></tr>` : ""}</tbody></table></div>`;
+    }).join("");
+    return `<div class="cartao rota" style="border-left-color:${r.cor}">
+      <p class="so-impressao cabecalho-impressao">Rota de entrega · ${hojeTxt} · saída de ${esc(estado.deposito.nome)}${R.atualizada ? ` · atualizada (versão ${R.atualizada.vez + 1})` : ""}</p>
+      <div class="topo-rota">
+        <h3><span class="bolinha" style="background:${r.cor}"></span>${esc(r.veiculo.nome)}${r.viagens.length > 1 ? ` <span class="etiqueta meio">${r.viagens.length} viagens</span>` : ""}</h3>
+        <div class="acoes-rota">
+          <button type="button" class="secundario pequeno" data-imprimir="${k}">Imprimir</button>
+          <button type="button" class="secundario pequeno" data-imagem="${k}" data-acao="baixar">Baixar imagem</button>
+          <button type="button" class="secundario pequeno" data-imagem="${k}" data-acao="copiar">Copiar imagem</button>
+          <button type="button" class="secundario pequeno" data-imagem="${k}" data-acao="enviar">Compartilhar</button>
+        </div>
+      </div>
+      <div class="fatos">
+        <span><b>${num(r.paradas)}</b> paradas</span><span><b>${num(r.botijoes)}</b> botijões</span><span><b>${num(r.km, 1)} km</b></span>
+        <span><b>${duracao(r.total)}</b>${r.dirigindo === null ? "" : ` (${duracao(r.dirigindo)} dirigindo + ${duracao(r.parado)} parado)`}</span>
+        <span>${hhmm(R.P.saida)} → <b>${hhmm(r.fim)}</b></span>
+      </div>${blocos}
+      <p class="so-impressao rodape-impressao">Horários previstos, sem trânsito. Marque cada entrega feita na coluna "Feito".</p></div>`;
+  }).join("");
+  const pend = R.fora.concat(R.semLocal);
+  $("r-fora").hidden = !pend.length;
+  $("r-fora").innerHTML = pend.length ? `<h3>Entregas fora das rotas</h3><ul class="limpa">` +
+    R.fora.map(e => `<li>${esc(e.cliente)} (${num(e.qtd)} botijões): ${R.P.permitirRecarga ? "pedido maior que a capacidade de qualquer veículo" : "não coube; ligue a recarga no depósito para atender em outra viagem"}.</li>`).join("") +
+    R.semLocal.map(e => `<li>${esc(e.cliente)}: ${e.rua ? "endereço não localizado (" + esc(enderecoTexto(e)) + ")" : "sem rua e sem coordenada"}.</li>`).join("") + "</ul>" : "";
+}
+function exportarCsv() {
+  const R = estado.resultado; if (!R) return;
+  const linhas = [["veiculo", "viagem", "ordem", "cliente", "rua", "numero", "bairro", "cidade", "latitude", "longitude", "chegada", "hora_marcada", "atraso_min", "km_trecho", "botijoes_entregues", "cheios_a_bordo_apos"]];
+  R.rotas.forEach(r => r.viagens.forEach(vg => vg.paradas.forEach(p => linhas.push([r.veiculo.nome, vg.numero, p.ordem, p.entrega.cliente, p.entrega.rua, p.entrega.numero, p.entrega.bairro, p.entrega.cidade,
+    p.entrega.lat.toFixed(5), p.entrega.lon.toFixed(5), hhmm(p.chegada), p.entrega.hora || "", p.marcada ? Math.round(p.atraso) : "", p.trechoKm.toFixed(1).replace(".", ","), p.entrega.qtd, p.restam]))));
+  baixar("rotas.csv", linhas.map(l => l.map(c => /[;"\n]/.test(String(c)) ? '"' + String(c).replace(/"/g, '""') + '"' : c).join(";")).join("\r\n"));
+}
+function baixar(nome, texto) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + texto], { type: "text/csv;charset=utf-8" })); a.download = nome;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ================= Mapa ================= */
+let mapa = null, camada = null;
+function iniciarMapa() {
+  if (!window.L) { $("mapa").classList.add("sem-leaflet"); return; }
+  mapa = L.map("mapa", { scrollWheelZoom: true }).setView([-29.27, -51.515], 12);
+  // Fundos que funcionam sem chave e também com a página aberta direto do disco (o servidor principal do
+  // OpenStreetMap recusa páginas locais). O seletor no canto do mapa troca de fundo se um deles estiver fora do ar.
+  const osm = '&copy; colaboradores do <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+  const fundos = {
+    "Ruas (OpenStreetMap França)": L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", { maxZoom: 19, subdomains: "abc", attribution: osm + ", estilo HOT, servidor OSM França" }),
+    "Ruas (OpenStreetMap Alemanha)": L.tileLayer("https://tile.openstreetmap.de/{z}/{x}/{y}.png", { maxZoom: 18, attribution: osm + ", servidor OSM Alemanha" }),
+    "Ruas (Esri)": L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Tiles &copy; Esri" }),
+  };
+  fundos["Ruas (OpenStreetMap França)"].addTo(mapa);
+  L.control.layers(fundos, null, { position: "topright" }).addTo(mapa);
+  camada = L.layerGroup().addTo(mapa);
+  mapa.on("click", ev => cliqueNoMapa(ev.latlng.lat, ev.latlng.lng));
+}
+function cliqueNoMapa(lat, lon) {
+  if (!estado.modoMapa) return;
+  lerFormularios();
+  if (estado.modoMapa === "deposito") { estado.deposito.lat = lat; estado.deposito.lon = lon; definirModo(null); }
+  else estado.entregas.push(novaEntrega({ cliente: "Entrega " + (estado.entregas.length + 1), lat, lon, origem: "mapa" }));
+  estado.resultado = null; desenharTudo();
+}
+function definirModo(modo) {
+  estado.modoMapa = estado.modoMapa === modo ? null : modo;
+  $("btn-modo-deposito").setAttribute("aria-pressed", estado.modoMapa === "deposito"); $("btn-modo-entrega").setAttribute("aria-pressed", estado.modoMapa === "entrega");
+  $("mapa").classList.toggle("marcando", !!estado.modoMapa);
+  $("dica-mapa").textContent = estado.modoMapa === "deposito" ? "Clique no mapa para marcar o depósito." : estado.modoMapa === "entrega" ? "Clique no mapa para adicionar entregas. Clique de novo no botão para parar." : "Arraste um marcador para corrigir a posição de uma entrega.";
+}
+function elementosDoMapa() {
+  const R = estado.resultado, d = estado.deposito, itens = { deposito: coordValida(d.lat, d.lon) ? d : null, pontos: [], linhas: [] };
+  const roteadas = new Set();
+  if (R) R.rotas.forEach(r => r.viagens.forEach(vg => {
+    const seq = [d].concat(vg.paradas.map(p => p.entrega), vg.volta ? [d] : []).map(p => [p.lat, p.lon]);
+    itens.linhas.push({ cor: r.cor, caminho: vg.geometria || seq, reta: !vg.geometria, segunda: vg.numero > 1, nome: r.veiculo.nome + (r.viagens.length > 1 ? " · viagem " + vg.numero : "") });
+    vg.paradas.forEach(p => { roteadas.add(p.entrega.id); itens.pontos.push({ entrega: p.entrega, lat: p.entrega.lat, lon: p.entrega.lon, cor: r.cor, texto: String(p.ordem),
+      dica: `<b>${esc(r.veiculo.nome)}${r.viagens.length > 1 ? " · viagem " + vg.numero : ""} · parada ${p.ordem}</b><br>${esc(p.entrega.cliente)}<br>${esc(enderecoTexto(p.entrega))}<br>Chegada ${hhmm(p.chegada)}${p.marcada ? " (marcada " + esc(p.entrega.hora) + (p.atraso > 0.5 ? ", atraso de " + duracao(p.atraso) : "") + ")" : ""} · entrega ${num(p.entrega.qtd)} · ficam ${num(p.restam)} cheios` }); });
+  }));
+  estado.entregas.filter(e => coordValida(e.lat, e.lon) && !roteadas.has(e.id)).forEach(e =>
+    itens.pontos.push({ entrega: e, lat: e.lat, lon: e.lon, cor: "#97999B", texto: "", dica: `<b>${esc(e.cliente)}</b><br>${esc(enderecoTexto(e))}<br>${num(e.qtd)} botijões` }));
+  return itens;
+}
+function desenharLegenda() {
+  const R = estado.resultado;
+  $("legenda-mapa").innerHTML = `<span><i class="marca deposito"></i>Depósito</span>` + (R ? R.rotas.filter(r => r.paradas).map(r =>
+    `<span><i class="marca" style="background:${r.cor}"></i>${esc(r.veiculo.nome)} (${r.viagens.length > 1 ? r.viagens.length + " viagens, " : ""}${num(r.paradas)} paradas, ${num(r.km, 1)} km)</span>`).join("") : `<span><i class="marca" style="background:#97999B"></i>Entregas a roteirizar</span>`);
+}
+function desenharMapa(enquadrar) {
+  desenharLegenda();
+  const itens = elementosDoMapa(), todos = itens.pontos.map(p => [p.lat, p.lon]).concat(itens.deposito ? [[itens.deposito.lat, itens.deposito.lon]] : []);
+  if (!mapa) return desenharMapaSimples(itens, todos);
+  camada.clearLayers();
+  itens.linhas.forEach(l => L.polyline(l.caminho, { color: l.cor, weight: 4, opacity: .85, dashArray: l.reta ? "6 8" : l.segunda ? "14 7" : null }).bindTooltip(l.nome, { sticky: true }).addTo(camada));
+  itens.pontos.forEach(p => {
+    const m = L.marker([p.lat, p.lon], { draggable: true, icon: L.divIcon({ className: "", iconSize: [24, 24], iconAnchor: [12, 12],
+      html: `<div class="pino${p.texto ? "" : " pequeno"}" style="background:${p.cor}">${p.texto}</div>` }) }).bindPopup(p.dica).addTo(camada);
+    m.on("dragend", () => {                                  // posição corrigida à mão vale mais que a do endereço
+      const ll = m.getLatLng(); lerFormularios();
+      p.entrega.lat = ll.lat; p.entrega.lon = ll.lng; p.entrega.origem = "mapa";
+      const tinhaRota = !!estado.resultado; estado.resultado = null;
+      desenharEntregas(); desenharResultado(); desenharMapa();
+      aviso(`Posição de ${p.entrega.cliente} ajustada no mapa.` + (tinhaRota ? " Clique em “Criar rotas” para recalcular." : ""), "ok");
+    });
+  });
+  if (itens.deposito) L.marker([itens.deposito.lat, itens.deposito.lon], { zIndexOffset: 1000, icon: L.divIcon({ className: "", iconSize: [30, 30], iconAnchor: [15, 15], html: `<div class="pino deposito">D</div>` }) })
+    .bindPopup(`<b>${esc(itens.deposito.nome)}</b><br>Saída e volta dos veículos`).addTo(camada);
+  if ((enquadrar || estado.resultado) && todos.length) mapa.fitBounds(todos, { padding: [30, 30], maxZoom: 16 });
+}
+/* Sem a biblioteca de mapas (sem internet): desenho simples dos pontos e das rotas, sem ruas ao fundo. */
+function desenharMapaSimples(itens, todos) {
+  const el = $("mapa");
+  if (!todos.length) { el.innerHTML = `<p class="vazio">O mapa precisa de internet. Sem ela, os pontos aparecem aqui sem as ruas ao fundo.</p>`; return; }
+  const W = 800, H = 520, m = 30, lats = todos.map(p => p[0]), lons = todos.map(p => p[1]);
+  const la0 = Math.min(...lats), la1 = Math.max(...lats), lo0 = Math.min(...lons), lo1 = Math.max(...lons), k = Math.cos((la0 + la1) / 2 * Math.PI / 180);
+  const esc2 = Math.min((W - 2 * m) / ((lo1 - lo0) * k || 1e-6), (H - 2 * m) / ((la1 - la0) || 1e-6));
+  const x = lon => m + (lon - lo0) * k * esc2 + ((W - 2 * m) - (lo1 - lo0) * k * esc2) / 2, y = lat => H - m - (lat - la0) * esc2 - ((H - 2 * m) - (la1 - la0) * esc2) / 2;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Rotas sem mapa de fundo">` +
+    itens.linhas.map(l => `<polyline points="${l.caminho.map(c => x(c[1]).toFixed(1) + "," + y(c[0]).toFixed(1)).join(" ")}" fill="none" stroke="${l.cor}" stroke-width="3" stroke-linejoin="round" opacity=".85"/>`).join("") +
+    itens.pontos.map(p => `<g><circle cx="${x(p.lon).toFixed(1)}" cy="${y(p.lat).toFixed(1)}" r="${p.texto ? 10 : 5}" fill="${p.cor}" stroke="#fff" stroke-width="2"/>` +
+      (p.texto ? `<text x="${x(p.lon).toFixed(1)}" y="${(y(p.lat) + 4).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">${p.texto}</text>` : "") + `</g>`).join("") +
+    (itens.deposito ? `<rect x="${(x(itens.deposito.lon) - 11).toFixed(1)}" y="${(y(itens.deposito.lat) - 11).toFixed(1)}" width="22" height="22" rx="5" fill="#FFD100" stroke="#1B365D" stroke-width="2"/><text x="${x(itens.deposito.lon).toFixed(1)}" y="${(y(itens.deposito.lat) + 4).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="700" fill="#1B365D">D</text>` : "") + `</svg>`;
+}
+
+/* ================= Eventos ================= */
+function iniciar() {
+  iniciarMapa();
+  $("btn-exemplo").addEventListener("click", carregarExemplo);
+  $("btn-limpar").addEventListener("click", () => { lerFormularios(); estado.entregas = []; estado.resultado = null; aviso(""); desenharTudo(); });
+  $("btn-add-veiculo").addEventListener("click", () => { lerFormularios(); estado.veiculos.push({ id: proximoId++, nome: "Veículo " + (estado.veiculos.length + 1), cap: 30, ativo: true }); desenharVeiculos(); });
+  $("btn-add-entrega").addEventListener("click", () => { lerFormularios(); estado.entregas.push(novaEntrega({ cliente: "Entrega " + (estado.entregas.length + 1) })); desenharEntregas(); desenharResumo(); });
+  $("btn-rotas").addEventListener("click", criarRotas);
+  $("btn-csv").addEventListener("click", exportarCsv);
+  $("btn-imprimir").addEventListener("click", () => imprimir(null));
+  $("btn-atualizar").addEventListener("click", atualizarRotas);
+  $("r-rotas").addEventListener("click", ev => {
+    const bi = ev.target.closest("[data-imprimir]"), bg = ev.target.closest("[data-imagem]");
+    if (bi) imprimir(+bi.dataset.imprimir);
+    if (bg) exportarImagem(+bg.dataset.imagem, bg.dataset.acao);
+  });
+  $("r-rotas").addEventListener("change", ev => {
+    const caixa = ev.target.closest("[data-feito]"); if (!caixa || !estado.resultado) return;
+    estado.resultado.rotas.forEach(r => r.viagens.forEach(vg => vg.paradas.forEach(p => { if (String(p.entrega.id) === caixa.dataset.feito) p.feito = caixa.checked; })));
+    caixa.closest("tr").classList.toggle("feito", caixa.checked);
+  });
+  $("btn-modo-deposito").addEventListener("click", () => definirModo("deposito"));
+  $("btn-modo-entrega").addEventListener("click", () => definirModo("entrega"));
+  $("btn-modelo").addEventListener("click", () => baixar("modelo_entregas.csv", "cliente;rua;numero;bairro;cidade;quantidade;hora_marcada;coordenada\r\nMaria Silva;Rua Exemplo;100;Centro;Garibaldi;1;;\r\nJoão Souza;Avenida Modelo;2350;;Carlos Barbosa;2;14:30;\r\nRestaurante Sabor;;;;Garibaldi;4;;-29.2562, -51.5269\r\n"));
+  $("arquivo").addEventListener("change", async ev => {
+    const arq = ev.target.files[0]; if (!arq) return;
+    try {
+      const { entregas, avisos } = linhasParaEntregas(await lerArquivo(arq));
+      lerFormularios();
+      estado.entregas = $("p-somar").checked ? estado.entregas.concat(entregas) : entregas; estado.resultado = null;
+      desenharTudo();
+      aviso(`${entregas.length} entrega(s) lidas de ${arq.name}.` + (avisos.length ? " " + avisos.slice(0, 3).join(" ") + (avisos.length > 3 ? ` E mais ${avisos.length - 3}.` : "") : ""), avisos.length ? "alerta" : "ok");
+    } catch (e) { aviso("Não consegui ler o arquivo: " + e.message + ". Salve a planilha como CSV e tente de novo.", "erro"); }
+    ev.target.value = "";
+  });
+  document.addEventListener("click", ev => {
+    const rv = ev.target.closest("[data-rem-veiculo]"), re = ev.target.closest("[data-rem-entrega]");
+    if (rv) { lerFormularios(); estado.veiculos = estado.veiculos.filter(v => v.id !== +rv.dataset.remVeiculo); estado.resultado = null; desenharTudo(); }
+    if (re) { lerFormularios(); estado.entregas = estado.entregas.filter(e => e.id !== +re.dataset.remEntrega); estado.resultado = null; desenharTudo(); }
+  });
+  // sem redesenhar as tabelas aqui, para não tirar o cursor de quem está digitando
+  ["t-veiculos", "t-entregas"].forEach(id => $(id).addEventListener("change", () => { lerFormularios(); desenharResumo(); if (id === "t-entregas") { atualizarEtiquetas(); desenharMapa(); } }));
+  ["d-lat", "d-lon"].forEach(id => $(id).addEventListener("change", () => { lerFormularios(); desenharMapa(true); }));
+  $("p-viagens").addEventListener("change", desenharResumo);
+  $("p-cidade").addEventListener("change", () => { lerFormularios(); desenharEntregas(); });
+  definirModo(null);
+  carregarExemplo();
+}
+if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", iniciar);
+if (typeof module !== "undefined") module.exports = { custoEmAndamento, replanejarNucleo, custoRota, simularRota, ordenarViagens, lerHora, otimizar, planejarViagens, tempoDoMaisDemorado, kmDasViagens, lerCoordenada, ordemDaLista, kmRota, tempoRota, textoParaLinhas, linhasParaEntregas, linhaReta, FATOR_RUA, KM_H_RESERVA, EXEMPLO };
+</script>
+</body>
+</html>

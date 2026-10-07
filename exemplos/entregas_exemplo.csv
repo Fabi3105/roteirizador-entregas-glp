@@ -1,0 +1,43 @@
+﻿cliente;rua;numero;bairro;cidade;quantidade;hora_marcada;coordenada
+Cliente 01;;;;Garibaldi;1;;-29.24516, -51.52313
+Cliente 02;Rua Buarque de Macedo;2140;Centro;Garibaldi;2;;-29.25483, -51.53083
+Cliente 03;Rua 13 de Maio;310;;Garibaldi;1;;-29.2582, -51.53472
+Cliente 04;Rua Hércules Grossi;95;;Garibaldi;1;;-29.25628, -51.53325
+Restaurante 05;Rua Florgentino Palhano Ribeiro;480;;Garibaldi;6;10:00;-29.25185, -51.52315
+Cliente 06;Rua Ernesto Alves;222;;Garibaldi;1;;-29.25904, -51.53678
+Cliente 07;;;;Garibaldi;2;;-29.26, -51.52525
+Cliente 08;Rua Vicente Faraon;71;;Garibaldi;1;;-29.25842, -51.52171
+Cliente 09;;;;Garibaldi;1;;-29.26549, -51.52879
+Cliente 10;Rua Alencar Araripe;655;;Garibaldi;2;;-29.2522, -51.5322
+Padaria 11;Rua Assis Brasil;128;;Garibaldi;4;;-29.25343, -51.52137
+Cliente 12;Rua João Prancutti;340;;Garibaldi;1;;-29.24248, -51.52758
+Cliente 13;Rua Vicente Dal Bó;57;;Garibaldi;1;;-29.26034, -51.52319
+Cliente 14;Rua Antônio Bonadiman;912;;Garibaldi;2;;-29.26734, -51.53671
+Cliente 15;Rua General Osório;45;Centro;Garibaldi;1;;-29.25823, -51.52695
+Lancheria 16;Rua Manoel Peterlongo Filho;210;;Garibaldi;5;;-29.25926, -51.52764
+Cliente 17;Rua Quinze de Novembro;830;;Garibaldi;1;;-29.25959, -51.53988
+Cliente 18;;;;Garibaldi;1;;-29.26371, -51.5341
+Cliente 19;Rua João Prancutti;398;;Garibaldi;2;;-29.24248, -51.52692
+Cliente 20;Rua Florgentino Palhano Ribeiro;190;;Garibaldi;1;;-29.25345, -51.52417
+Cliente 21;Rua Doutor Carlos Barbosa;33;Centro;Garibaldi;1;;-29.25373, -51.53185
+Cliente 22;Rua Irmã Dorothee;140;;Garibaldi;3;;-29.26477, -51.52924
+Cliente 23;Rua Pinheiro Machado;505;;Garibaldi;1;;-29.25586, -51.53955
+Cliente 24;Rua João Ludovico Salvador;88;;Garibaldi;1;;-29.25481, -51.52239
+Hotel 25;Rua Frei Nicolau Lucian;600;;Garibaldi;8;11:00;-29.26448, -51.51451
+Cliente 26;Rua Irmã Camila Parmagnani;75;;Carlos Barbosa;1;;-29.30414, -51.50166
+Cliente 27;Rua Júlio de Castilhos;1020;;Carlos Barbosa;2;;-29.30112, -51.49938
+Cliente 28;Rua 21 de Abril;64;;Carlos Barbosa;1;;-29.28977, -51.49932
+Cliente 29;;;;Carlos Barbosa;1;;-29.29516, -51.49352
+Refeitório 30;Rua Elisa Tramontina;300;;Carlos Barbosa;10;09:00;-29.29294, -51.50359
+Cliente 31;Rua Cristóvão Colombo;415;;Carlos Barbosa;1;;-29.29977, -51.49683
+Cliente 32;Rua Imigrantes;52;;Carlos Barbosa;2;;-29.30566, -51.50005
+Cliente 33;Rua Princesa Isabel;230;;Carlos Barbosa;1;;-29.29443, -51.4963
+Cliente 34;Rua Pinheiro Machado;118;;Carlos Barbosa;1;;-29.29252, -51.5067
+Cliente 35;Rua 15 de Novembro;77;Centro;Carlos Barbosa;3;;-29.29701, -51.50474
+Cliente 36;Rua Walter Jobim;260;;Carlos Barbosa;1;;-29.29858, -51.50596
+Mercado 37;Avenida Ivo Tramontina;1500;;Carlos Barbosa;6;;-29.29468, -51.50058
+Cliente 38;Rua Verona;39;;Carlos Barbosa;1;;-29.30478, -51.49934
+Cliente 39;Avenida Presidente Kennedy;700;;Carlos Barbosa;2;;-29.29891, -51.49783
+Cliente 40;Rua Júlio de Castilhos;120;Centro;Garibaldi;2;;
+Cliente 41;Rua Buarque de Macedo;3300;Centro;Garibaldi;1;;
+Cliente 42;Rua Rio Branco;85;;Carlos Barbosa;2;;
